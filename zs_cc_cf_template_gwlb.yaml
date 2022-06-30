@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Zscaler Cloud Connector GWLB Template
+Metadata:
+  LICENSE: 'Apache License, Version 2.0'
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: Cloud Connector Instances
+        Parameters:
+          - Ec2Instances
+          - Ec2InstancesHttpProbePort
+          - EnableCrossZoneLB
+    ParameterLabels:
+      Ec2Instances:
+        default: ZS CC instance IDs
+      Ec2InstancesHttpProbePort:
+        default: ZS CC instance Http Probe Port
+      EnableCrossZoneLB:
+        default: 'ZS CC GWLB, enable cross zone forwarding'
+  cfn-lint:
+    config:
+      ignore_checks:
+        - E9007
+Transform:
+  - Name: ZSCC-Macro
+    Parameters:
+      operation : ZSCCGWLB
+Parameters:
+  Ec2Instances:
+    Type: List<AWS::EC2::Instance::Id>
+    Description: >-
+      AWS EC2 Instance IDs for ZS Cloud Connectors that are to be added to the
+      GWLB
+  Ec2InstancesHttpProbePort:
+    Type: String
+    AllowedPattern: >-
+      ^(80|102[4-9]|10[3-9]\d|1[1-9]\d{2}|[2-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$
+    ConstraintDescription: 'The HTTP probe port''s allowed values are [80, 1024-65535]'
+    Description: >-
+      The Http Probe Healthcheck Port for ZS Cloud Connectors. Allowed values
+      are [80, 1024-65535]
+  EnableCrossZoneLB:
+    Type: String
+    AllowedValues:
+      - false
+      - true
+    Default: true
+    Description: Enable Cross Zone GWLB operation
+Resources:
+  ZSCCGWLBTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckPath: /?cchealth
+      HealthCheckPort: !Ref Ec2InstancesHttpProbePort
+      HealthCheckProtocol: HTTP
+      Name: !Join
+        - "-"
+        - - ZSCCGWLBTargetGroup
+          - !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]
+      Port: 6081
+      Protocol: GENEVE
+      TargetType: ip
+  ZSCCGWLBListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref ZSCCGWLBTargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref ZSCCGWLB
+  ZSCCVPCEPService:
+    Type: 'AWS::EC2::VPCEndpointService'
+    Properties:
+      AcceptanceRequired: false
+      GatewayLoadBalancerArns:
+        - !Ref ZSCCGWLB
+  ZSCCVPCEP:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      ServiceName: !Join
+        - .
+        - - com.amazonaws.vpce
+          - !Ref AWS::Region
+          - !Ref ZSCCVPCEPService
+      VpcEndpointType: GatewayLoadBalancer
+  ZSCCGWLB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      LoadBalancerAttributes:
+        - Key: load_balancing.cross_zone.enabled
+          Value: !Ref EnableCrossZoneLB
+      Name: !Join
+        - "-"
+        - - ZSCCGWLB
+          - !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]
+      Type: gateway
+Outputs:
+  ZScalerCCGWLB:
+    Description: ZS CC GWLB
+    Value: !Ref ZSCCGWLB
+  ZSCCVPCEPService:
+    Description: ZSCCVPCEPService
+    Value: !Ref ZSCCVPCEPService
+  ZSCCVPCEP:
+    Description: Use this VPC EP for route nexthops
+    Value: !Ref ZSCCVPCEP
+  CloudConnectorGWLBTemplateVersion:
+    Description: Cloud Connector Template Version
+    Value: 2022.5.20
