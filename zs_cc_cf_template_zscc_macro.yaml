@@ -1,0 +1,499 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Zscaler Cloud Connector Pre-Deployment Macro Template
+Metadata:
+  LICENSE: 'Apache License, Version 2.0'
+  cfn-lint:
+    config:
+      ignore_checks:
+        - E1029 # Fn::Sub check for variable in string
+Resources:
+  ZSCCMacroExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: CustomLambdaEC2DescribePolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                Resource:
+                  - !Sub 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/zscc-macro'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub 'arn:aws:logs:*:${AWS::AccountId}:log-group:*'
+              - Effect: Allow
+                Action:
+                  - ec2:AssignPrivateIpAddresses
+                  - ec2:CreateNetworkInterface
+                  - ec2:DeleteNetworkInterface
+                  - ec2:DescribeInstances
+                  - ec2:DescribeNetworkInterfaces
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeInstanceAttribute
+                  - ec2:DescribeInstanceTypes
+                  - ec2:DescribeInstanceStatus
+                  - ec2:DescribeRouteTables
+                  - ec2:ReplaceRoute
+                  - ec2:UnassignPrivateIpAddresses
+                  - ec2:DescribeImages
+                  - lambda:InvokeFunction
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - secretsmanager:ListSecrets
+                  - secretsmanager:GetSecretValue
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*'
+  
+  ZSCCMacroFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: zscc-macro
+      Handler: index.lambda_handler
+      Description: Retrieves EC2 Service ENI Properties
+      Timeout: 30
+      Role: !GetAtt
+        - ZSCCMacroExecutionRole
+        - Arn
+      Runtime: python3.7
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          import boto3
+          import copy
+          import collections
+          import re
+          import copy 
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          # ONE TIME INITS
+          EC2_RESOURCE = boto3.resource('ec2')
+          CCINSTANCETYPE2INTS = {1: "Small", 2: "Medium", 3: "Large"}
+          IPV4PATTERN = re.compile("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$")
+
+          def retrieve_eni_properties(event):
+              try:
+                responseData = {"status": "success", "message": 'Retrieved ENI Properties!'}
+                VpcIds = []
+                SubnetIds = []
+                Targets = []
+                InstanceTypes = []
+                InstanceNumSrvcInts = []
+                SubnetsByAZ = collections.defaultdict(list)
+                instances = event.get("templateParameterValues").get("Ec2Instances")
+                for instance_id in instances:
+                  instance = EC2_RESOURCE.Instance(instance_id)
+                  instance_type = instance.instance_type
+                  logger.info(f"Instance: {instance_id}, Type: {instance_type}")
+                  if instance_type not in InstanceTypes:
+                    InstanceTypes.append(instance_type)
+                  # Only works for static mgmt NIC at index 0
+                  num_srvc_enis = [1, 2][len(instance.network_interfaces_attribute) > 2]
+                  enis = [e for e in
+                  instance.network_interfaces_attribute if e.get("Attachment").get("DeviceIndex") >= num_srvc_enis]
+                  # Let's keep track of how many enis this instance has
+                  if len(enis) not in InstanceNumSrvcInts:
+                    InstanceNumSrvcInts.append(len(enis))
+                  if len(enis):
+                    for eni in enis:
+                      ip = [i.get("PrivateIpAddress") for i in 
+                        eni.get("PrivateIpAddresses") if i.get("Primary") == True][0]
+                      Targets.append({"Id": ip})
+                      subnetId = eni.get("SubnetId")
+                      subnet = EC2_RESOURCE.Subnet(subnetId)
+                      if subnetId not in SubnetIds:
+                        SubnetIds.append(subnetId)
+                        SubnetsByAZ[re.sub("\-", "", subnet.availability_zone)].append(subnetId)
+                      vpc = eni.get("VpcId")
+                      if vpc not in VpcIds:
+                        VpcIds.append(vpc)
+                  else:
+                    err = f"Instance {instance} does not have a multiple enis"
+                    logger.critical(err)
+                    responseData["status"] = "failed"
+                    responseData["errorMessage"] = err  
+                    break
+                responseData["Targets"] = Targets
+                responseData["SubnetIds"]= SubnetIds
+                responseData["SubnetsByAZ"] = SubnetsByAZ
+                if len(InstanceTypes) > 1:
+                  err = f"All Cloud Connectors should be of the same instance type. Multiple found {InstanceTypes}"
+                  logger.critical(err)
+                  responseData["status"] = "failed"
+                  responseData["errorMessage"] = err
+                if len(InstanceNumSrvcInts) > 1:
+                  err = f"All Cloud Connectors should be of the same CC Instance Type. Multiple found {[CCINSTANCETYPE2INTS.get(i) for i in InstanceNumSrvcInts]}"
+                  logger.critical(err)
+                  responseData["status"] = "failed"
+                  responseData["errorMessage"] = err
+                if len(VpcIds) > 1:
+                  err = f"All Cloud Connectors should be in the same VPC, Multiple found {VpcIds}"
+                  logger.critical(err)
+                  responseData["status"] = "failed"
+                  responseData["errorMessage"] = err
+                elif len(VpcIds) == 1:
+                  responseData["VPCID"] = VpcIds[0]
+                if responseData.get('status') == "success":
+                  logger.info('Retrieved ENI Properties!')
+                return responseData
+              except Exception as e:
+                logger.critical(f"Error Occured: {e}")
+
+          def add_required_gwlb_resources(template, responseData):
+              res = {
+                "status": "success",
+                "message": "Template processed successfully"
+              }
+              try:
+                resources = template.get("Resources")
+                outputs = template.get("Outputs")
+                # Resource Keys to touch are
+                # ZSCCGWLBTargetGroup, ZSCCVPCEP, ZSCCGWLB
+                ZSCCGWLBTargetGroup = resources.get("ZSCCGWLBTargetGroup")
+                ZSCCGWLBTargetGroup.get("Properties")["Targets"] = responseData.get("Targets")
+                ZSCCGWLBTargetGroup.get("Properties")["VpcId"] = responseData.get("VPCID")
+                ZSCCGWLB = resources.get("ZSCCGWLB")
+                ZSCCGWLB.get("Properties")["Subnets"] = responseData.get("SubnetIds")
+                ZSCCVPCEPTemplate = resources.pop("ZSCCVPCEP")
+                ZSCCVPCEPOutputTemplate = outputs.pop("ZSCCVPCEP")
+                ZSCCVPCEPTemplate.get("Properties")["VpcId"] = responseData.get("VPCID")
+                for az, subnets in responseData.get("SubnetsByAZ").items():
+                  ep_name = f"ZSCCVPCEP{az}"
+                  ep_resource = copy.deepcopy(ZSCCVPCEPTemplate)
+                  ep_resource.get("Properties")["SubnetIds"] = subnets[:1]
+                  resources[ep_name] = ep_resource
+                  ep_output = copy.deepcopy(ZSCCVPCEPOutputTemplate)
+                  ep_output["Description"] = f"{ep_output['Description']} in {az}"
+                  ep_output["Value"] = {"Ref": ep_name}
+                  outputs[ep_name] = ep_output
+                res["fragment"] = template
+              except Exception as e:
+                logger.critical(f"Error Occured: {e}")
+                res["status"] = "failed"
+                res["errorMessage"] = e
+              return res
+
+          def zsccgwlb(event, context):
+              resp = {
+                  "requestId": event.get("requestId")
+                }
+              try:
+                responseData = retrieve_eni_properties(event)
+                resp.update(responseData)
+                if resp.get("status") == "success":
+                  template = event.get("fragment")
+                  res = add_required_gwlb_resources(template=template, responseData=responseData)
+                  resp.update(res)
+              except Exception as e:
+                logger.critical(e)
+              return resp
+
+          def retrive_ami_id_and_secret_arn(event):
+
+              responseData = {"status": "success", "message": 'Retrieved AMI ID!'}
+
+              # get the ImageCode from the template
+              try:
+                ImageCode = event["fragment"]["Mappings"]["Product2Code"]["CloudConnector"]["Code"]
+                logger.info(ImageCode)
+            
+              except Exception as e:
+                logger.info(e)
+                responseData = {"status": "failed", "errorMessage": f'{e}'}
+                return responseData
+
+              # use the ImageCode to get ami id
+              try:
+                  
+                client = boto3.client('ec2')
+                filters = [{"Name": "product-code", "Values":[ImageCode]}]
+                response = sorted(client.describe_images(Owners=["aws-marketplace"], Filters=filters).get("Images"), key=lambda x:  x.get("CreationDate"))
+                
+                SecretManagerSecretName = event["templateParameterValues"].get("SecretManagerSecretName", "ZS/CC/Credentials")
+                secretsmanager_client = boto3.client('secretsmanager')
+                secret = secretsmanager_client.get_secret_value(SecretId=SecretManagerSecretName)
+                
+                responseData["ImageId"]= response[-1].get("ImageId")
+                responseData["SecretArn"] = secret.get("ARN")
+                
+                logger.info('Retrieved AMI {0}'.format(responseData.get('ImageId')))
+                logger.info('Retrieved Secret ARN {0}'.format(responseData.get('SecretArn')))
+                logger.info(f'Sending response {responseData}')
+                
+                return responseData
+
+              except Exception as err:
+                logger.error(err)
+                responseData = {"status": "failed", "errorMessage": f'{err}'}
+                return responseData
+
+          def add_required_simple_resources(template, responseData):
+            res = {
+                "status": "success",
+                "message": "Simple Template processed successfully"
+              }
+              
+            try:  
+              # get the resources and outputs from the template
+              resources = template.get("Resources")
+              outputs = template.get("Outputs")
+
+              # add SecretArn to SecretManagerIAMRole Policy
+              # first fetch the policy document
+              policy_doc = resources["SecretManagerIAMRole"]["Properties"]["Policies"][0]["PolicyDocument"]
+              
+              # update the document
+              policy_doc["Statement"][0]["Resource"] = responseData["SecretArn"]
+              resources["SecretManagerIAMRole"]["Properties"]["Policies"][0]["PolicyDocument"] = policy_doc
+
+              # add ami id to ec-2 resource
+              resources["Ec2Instance"]["Properties"]["ImageId"] = responseData["ImageId"]
+              
+              # update template with new resources
+              template["Resources"] = resources
+
+              # add ami id in use to outputs
+              outputs["ImageIdInUse"]["Value"] = responseData["ImageId"]
+
+              # update outputs in template
+              template["Outputs"] = outputs
+
+              # update response 
+              res["fragment"] = template
+
+              return res
+
+            except Exception as e:
+              res = {
+                "status": "failure",
+                "errorMessage": f"{e}"
+              }
+              return res
+
+          def zsccsimple(event, context):
+              resp = {
+                  "requestId": event.get("requestId")
+                }
+              
+              try:
+                responseData = retrive_ami_id_and_secret_arn(event)
+                resp.update(responseData)
+                if resp.get("status") == "success":
+                  template = event.get("fragment")
+                  res = add_required_simple_resources(template=template, responseData=responseData)
+                  resp.update(res)
+              
+              except Exception as e:
+                logger.critical(e)
+              return resp
+
+          def get_secondary_ip_from_service_eni(event):
+
+            responseData = {"status": "success", "message": 'Retrieved ENI properties!'}
+
+            try:
+              # get ENI from template
+              serviceENI = event['templateParameterValues'].get('ServiceENI')
+              logger.info(f'ENI as per template is {serviceENI}')
+              
+              # use ENI to get secondary service IP addrs              
+              client = boto3.client('ec2')
+              response = client.describe_network_interfaces(NetworkInterfaceIds=[serviceENI])
+
+              # update responseData
+              responseData['TargetIp']= response.get('NetworkInterfaces')[0].get('PrivateIpAddresses')[1]['PrivateIpAddress']
+              responseData['VpcId']= response.get('NetworkInterfaces')[0].get('VpcId')
+              responseData['SubnetId']= response.get('NetworkInterfaces')[0].get('SubnetId')
+              logger.info('Retrieved ENI Properties!')
+
+            except Exception as err:
+              logger.error(f'function is -> get_secondary_ip_from_service_eni, error is {err}')
+              responseData = {"status": "failure", "errorMessage": str(err)}
+            
+            return responseData
+
+          def add_required_zpa_resources(template, vpcId, ResolverEPSubnets, TargetIps, app_domains_list):
+            
+            res = {
+                "status": "success",
+                "message": "ZPA Template processed successfully"
+              }
+
+            # get current resources and add to it later 
+            resources = template.get("Resources")
+
+            # outline of domain rule to add 
+            domain_rule_resource_outline = resources.get("AppSegmentResolverDomainRule")
+
+            # outline of domain rule association to add 
+            domain_rule_assn_resource_outline = resources.get("AppSegmentResolverDomainRuleAssociation")
+
+            try:
+              # add extra app domain rules and associations
+
+              for i in range(len(app_domains_list)):
+
+                app_domain = app_domains_list[i]
+                tag_name = "${AWS::StackName}-"+f"ZSCCAppSegment{i}"
+                
+                rule_resource_name = f"AppSegmentResolverDomainRule{i}"
+                association_resource_name = f"AppSegmentResolverDomainRule{i}Association"
+                
+                # REF! https://stackoverflow.com/questions/3975376/understanding-dict-copy-shallow-or-deep
+                # new rule res
+                new_rule_res = copy.deepcopy(domain_rule_resource_outline)
+                
+                # modify fields
+                new_rule_res["Properties"]["DomainName"] = app_domain
+                new_rule_res["Properties"]["Name"] = {"Fn::Sub": tag_name}
+                new_rule_res["Properties"]["Tags"][0]["Value"] = {"Fn::Sub": tag_name}
+                new_rule_res["Properties"]["TargetIps"] = list()
+                for targetIp in TargetIps:
+                  new_rule_res["Properties"]["TargetIps"].append({"Ip": targetIp, "Port": 53})
+
+                # add new rule resource
+                resources[rule_resource_name] = new_rule_res
+
+                # new association to rule
+                new_assn_res = copy.deepcopy(domain_rule_assn_resource_outline)
+
+                # modify fields
+                new_assn_res["Properties"]["Name"] = {"Fn::Sub":tag_name+"Association"}
+                new_assn_res["Properties"]["ResolverRuleId"]["Ref"] = rule_resource_name
+                new_assn_res["Properties"]["VPCId"] = vpcId
+
+                # add new assn resource
+                resources[association_resource_name] = new_assn_res
+
+              # modify existing resources
+              resources["AppSegmentResolverSecurityGroup"]["Properties"]["VpcId"] = vpcId
+              
+              resources["AppSegmentOutboundResolver"]["Properties"]["IpAddresses"][0] = {"SubnetId" : ResolverEPSubnets[0]}
+              resources["AppSegmentOutboundResolver"]["Properties"]["IpAddresses"][1] = {"SubnetId" : ResolverEPSubnets[len(ResolverEPSubnets) > 1]}
+              
+              for subnetId in ResolverEPSubnets[2:]:
+                resources["AppSegmentOutboundResolver"]["Properties"]["IpAddresses"].append({"SubnetId" : subnetId})
+
+              resources["AppSegmentResolverZSCloudDomainRuleAssociation"]["Properties"]["VPCId"] = vpcId
+              resources["AppSegmentResolverZPACloudDomainRuleAssociation"]["Properties"]["VPCId"] = vpcId
+              resources["AppSegmentResolverZScalerComDomainRuleAssociation"]["Properties"]["VPCId"] = vpcId
+              resources["AppSegmentResolverFreeBSDRuleAssociation"]["Properties"]["VPCId"] = vpcId
+              resources["AppSegmentResolverNtpOrgDomainRuleAssociation"]["Properties"]["VPCId"] = vpcId
+              resources["AppSegmentResolverAmazonAWSRuleAssociation"]["Properties"]["VPCId"] = vpcId
+
+              # pop outline resources
+              resources.pop("AppSegmentResolverDomainRule")
+              resources.pop("AppSegmentResolverDomainRuleAssociation")
+
+              # modify template and return modified template
+              template["Resources"] = resources
+
+              res["fragment"] = template
+
+
+            except Exception as e:
+              logger.error(f'function is -> add_required_zpa_resources, error is {e}')
+              res["status"] = "failure"
+              res["errorMessage"] = e
+            
+            return res
+
+          def zscczpa(event, context):
+            
+            logger.info('got event {}'.format(event))
+            resp = {
+                  "requestId": event.get("requestId")
+                }
+            
+            # get secondary IP from service ENI
+            try :
+              # responseData = get_secondary_ip_from_service_eni(event)
+              ResolverEPSubnets = event.get("templateParameterValues").get("ResolverEPSubnets")
+              logger.info(f"ResolverEPSubnets {ResolverEPSubnets}")
+              if "" in ResolverEPSubnets or len(ResolverEPSubnets) < 1 or len(ResolverEPSubnets) > 6:
+                msg = f"ResolverEPSubnets {ResolverEPSubnets} count should be between 1 and 6 inclusive."
+                resp["status"] = "failed"
+                resp["errorMessage"] = msg
+                return resp
+              
+              TargetIps = event.get("templateParameterValues").get("TargetIPs")
+              logger.info(f"TargetIps {TargetIps}")
+              if type(TargetIps) is not list or len(TargetIps) < 1 or len(TargetIps) > 6:
+                msg = f"TargetIps {TargetIps} count should be between 1 and 6 inclusive."
+                resp["status"] = "failed"
+                resp["errorMessage"] = msg
+                return resp
+              elif None in [IPV4PATTERN.fullmatch(ip) for ip in TargetIps]:
+                msg = f"All TargetIps {TargetIps} should be valid ip addresses"
+                resp["status"] = "failed"
+                resp["errorMessage"] = msg
+                return resp
+              vpcId = event.get("templateParameterValues").get("VPCID")
+              
+              # parse input parameters to get all app domains
+              app_domains_list = event["templateParameterValues"].get("ApplicationDomainNames")
+              logger.info(app_domains_list)
+
+              # update the template by dynamically adding resources
+              template = event.get("fragment")
+              res = add_required_zpa_resources(template, vpcId, ResolverEPSubnets, TargetIps, app_domains_list)
+
+              resp.update(res)
+
+            except Exception as e:
+                logger.critical(e)
+            
+            return resp
+
+          def lambda_handler(event, context):
+              logger.info(json.dumps(event))
+              operation = OPER_MAP.get(event.get("params").get("operation").lower())
+              resp = operation(event, context)
+              logger.info(resp)
+              return resp
+
+          # MAP
+          OPER_MAP = {
+            "zsccgwlb": zsccgwlb,
+            "zsccsimple": zsccsimple,
+            "zscczpa": zscczpa 
+          }
+
+  ZSCCMacroFunctionPermissions:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !GetAtt ZSCCMacroFunction.Arn
+      Principal: 'cloudformation.amazonaws.com'
+
+  ZSCCMacro:
+    Type: AWS::CloudFormation::Macro
+    Properties:
+      Name: 'ZSCC-Macro'
+      Description: Zscaler CC Custom Macro
+      FunctionName: !GetAtt ZSCCMacroFunction.Arn
+Outputs:
+  CloudConnectorMacroTemplateVersion:
+    Description: Cloud Connector Macro Template Version
+    Value: 2022.5.20
