@@ -1,0 +1,397 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Zscaler Cloud Connector
+
+Metadata:
+  LICENSE: 'Apache License, Version 2.0'
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: Network configuration
+        Parameters:
+          - VPCID
+          - AvailabilityZone
+          - CCSubnetID
+      - Label:
+          default: Zscaler Cloud Connector configuration
+        Parameters:
+          - ZscalerOSAMI
+          - KeyPairName
+          - CCInstanceType
+          - InstanceType
+          - CloudConnectorProvUrl
+          - SecretManagerSecretName
+          - HttpProbePort
+    ParameterLabels:
+      InstanceType:
+        default: Zscaler Cloud Connector VM AWS EC2 instance type
+      CCInstanceType:
+        default: Zscaler Cloud Connector instance type
+      KeyPairName:
+        default: Zscaler Cloud Connector instance key pair
+      ZscalerOSAMI:
+        default: Zscaler product
+      VPCID:
+        default: VPC ID
+      CCSubnetID:
+        default: Subnet ID of Zscaler Cloud Connector
+      CloudConnectorProvUrl:
+        default: Cloud Connector Provisioning URL
+      SecretManagerSecretName:
+        default: Secrets Manager Secret Name (Optional)
+      HttpProbePort:
+        default: HTTP Monitor Probe Port (Optional)
+  cfn-lint:
+    config:
+      ignore_checks:
+        - E9007
+
+Transform:
+  - Name: ZSCC-Macro
+    Parameters:
+      operation : ZSCCSIMPLE
+
+Parameters:
+  InstanceType:
+    AllowedValues:
+      - t3.medium
+      - c5.large
+      - c5a.large
+      - m5.large
+      - m5.2xlarge
+      - c5.2xlarge
+      - m5.4xlarge
+      - c5.4xlarge
+    Default: m5.large
+    Description: Amazon EC2 instance type for the ZS instances.
+    Type: String
+  CCInstanceType:
+    AllowedValues:
+      - small
+      - medium
+      - large
+    Default: small
+    Description: ZS Cloud Connector Instance type
+    Type: String    
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 Instance Access KeyPair
+  VPCID:
+    Description: 'ID of the VPC (e.g., vpc-0343606e).'
+    Type: 'AWS::EC2::VPC::Id'
+  AvailabilityZone:
+    Description: Availability Zone of the subnets
+    Type: 'AWS::EC2::AvailabilityZone::Name'
+  CCSubnetID:
+    Description: ID of the Zscaler CC Subnet
+    Type: 'AWS::EC2::Subnet::Id'
+  CloudConnectorProvUrl:
+    AllowedPattern: '(admin|connector).zs.*.net(/ec)?/w?api/v1/provUrl\?name=[\w-_]+'
+    ConstraintDescription: >-
+      Please input the Cloud Connector Provisioning Template URL to use from
+      your Zscaler Cloud Connector Portal
+    Description: Cloud Connector Prov URL
+    Type: String
+  SecretManagerSecretName:
+    Type: String
+    Default: 'ZS/CC/credentials'
+    Description: >-
+      Secret Manager Secret Name, defaults to ZS/CC/credentials
+  HttpProbePort:
+    Type: String
+    AllowedPattern: '^$|^(80|102[4-9]|10[3-9]\d|1[1-9]\d{2}|[2-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$'
+    ConstraintDescription: >-
+      When specified, the HTTP probe port's allowed values are [80, 1024-65535]
+    Description: HTTP Monitor probe port to listen on for monitoring probes
+
+Conditions:
+  SecretsManagerNameNotEmpty: !Not [!Equals [!Ref SecretManagerSecretName, '']]
+  HttpProbePortNotEmpty: !Not [!Equals [!Ref HttpProbePort, '']]
+  CreateCCMediumServiceXfaces: !Or
+    - !Equals [!Ref CCInstanceType, "medium"]
+    - !Equals [!Ref CCInstanceType, "large"]
+  CreateCCLargeServiceXfaces: !Equals [!Ref CCInstanceType, "large"]
+Rules:
+  SubnetsInVPC:
+    Assertions:
+      - Assert:
+          'Fn::EachMemberEquals':
+            - 'Fn::ValueOfAll':
+                - 'AWS::EC2::Subnet::Id'
+                - VpcId
+            - !Ref VPCID
+        AssertDescription: All subnets must exist in the selected VPC
+      - Assert:
+          'Fn::EachMemberEquals':
+            - 'Fn::ValueOfAll':
+                - 'AWS::EC2::Subnet::Id'
+                - AvailabilityZone
+            - !Ref AvailabilityZone
+        AssertDescription: All subnets must exist in the selected AvailabilityZone
+  smallCCInstanceType:
+    RuleCondition: !Equals
+      - !Ref CCInstanceType
+      - small
+    Assertions:
+      - Assert:
+          'Fn::Contains':
+            - - t3.medium
+              - c5.large
+              - c5a.large
+              - m5.large
+              - m5.2xlarge
+              - c5.2xlarge
+              - m5.4xlarge
+              - c5.4xlarge
+            - !Ref InstanceType
+        AssertDescription: >-
+          For small CCInstanceType, the Instance type must be one of t3.medium, c5.large, c5a.large, m5.large, m5.2xlarge, c5.2xlarge, m5.4xlarge, c5.4xlarge
+  mediumCCInstanceType:
+    RuleCondition: !Equals
+      - !Ref CCInstanceType
+      - medium
+    Assertions:
+      - Assert:
+          'Fn::Contains':
+            - - m5.2xlarge
+              - c5.2xlarge
+              - m5.4xlarge
+              - c5.4xlarge
+            - !Ref InstanceType
+        AssertDescription: >-
+          For medium CCInstanceType, the Instance type must be one of m5.2xlarge, c5.2xlarge, m5.4xlarge, c5.4xlarge
+  largeCCInstanceType:
+    RuleCondition: !Equals
+      - !Ref CCInstanceType
+      - large
+    Assertions:
+      - Assert:
+          'Fn::Contains':
+            - - m5.4xlarge
+              - c5.4xlarge
+            - !Ref InstanceType
+        AssertDescription: >-
+          For large CCInstanceType, the Instance type must be one of m5.4xlarge, c5.4xlarge
+  CCProvUrlNotEmpty:
+    Assertions:
+      - Assert: !Not
+          - !Equals
+            - !Ref CloudConnectorProvUrl
+            - ''
+    AssertionDescription: Cloud Connector Provisioning URL cannot be empty!
+
+Mappings:
+  Product2Code:
+    CloudConnector:
+      Code: 2l8tfysndbav4tv2nfjwak3cu
+
+Resources:
+  MgmtSecurityGroup:
+    Description: Create Mgmt Security Group
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPCID
+      GroupDescription: Enable intra cloud comm
+      SecurityGroupIngress:
+        - IpProtocol: TCP
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+  ServiceSecurityGroup:
+    Description: Create Service Security Group
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPCID
+      GroupDescription: Enable intra cloud comm
+      SecurityGroupIngress:
+        - IpProtocol: '-1'
+          FromPort: '0'
+          ToPort: '65535'
+          CidrIp: 0.0.0.0/0
+  ServiceXface:
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      SubnetId: !Ref CCSubnetID
+      SecondaryPrivateIpAddressCount: 1
+      Description: Interface for service traffic
+      GroupSet:
+        - !Ref ServiceSecurityGroup
+      SourceDestCheck: 'false'
+      Tags:
+        - Key: Network
+          Value: !Sub '${AWS::StackName}-Service'
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF'
+  ServiceXface2:
+    Condition: CreateCCMediumServiceXfaces
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      SubnetId: !Ref CCSubnetID
+      Description: !Join
+        - " "
+        - - Interface for service traffic for CC
+          - !Ref CCInstanceType
+          - Instance Type
+      GroupSet:
+        - !Ref ServiceSecurityGroup
+      SourceDestCheck: 'false'
+      Tags:
+        - Key: Network
+          Value: !Sub '${AWS::StackName}-Service2'
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF2'
+  ServiceXface3:
+    Condition: CreateCCMediumServiceXfaces
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      SubnetId: !Ref CCSubnetID
+      Description: !Join
+        - " "
+        - - Interface for service traffic for CC
+          - !Ref CCInstanceType
+          - Instance Type
+      GroupSet:
+        - !Ref ServiceSecurityGroup
+      SourceDestCheck: 'false'
+      Tags:
+        - Key: Network
+          Value: !Sub '${AWS::StackName}-Servic3'
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF3'
+  ServiceXface4:
+    Condition: CreateCCLargeServiceXfaces
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      SubnetId: !Ref CCSubnetID
+      Description: !Join
+        - " "
+        - - Interface for service traffic for CC
+          - !Ref CCInstanceType
+          - Instance Type
+      GroupSet:
+        - !Ref ServiceSecurityGroup
+      SourceDestCheck: 'false'
+      Tags:
+        - Key: Network
+          Value: !Sub '${AWS::StackName}-Service4'
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF4'
+  SecretManagerIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Description: ZS Cloud Connector VM IAM Role for Secrets Manager
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+          - PolicyName: CustomLambdaEC2DescribePolicy
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - 'secretsmanager:GetSecretValue'
+      ManagedPolicyArns:
+        # - 'arn:aws:iam::aws:policy/SecretsManagerReadWrite'
+        # SSM policy Commented out for non-poc deployments
+        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+  CCHostProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Roles:
+        - !Ref SecretManagerIAMRole
+  Ec2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      KeyName: !Ref KeyPairName
+      AvailabilityZone: !Ref AvailabilityZone
+      SubnetId: !Ref CCSubnetID
+      SecurityGroupIds:
+        - !Ref MgmtSecurityGroup
+      IamInstanceProfile: !Ref CCHostProfile
+      InstanceType: !Ref InstanceType
+      Tags:
+        - Key: Role
+          Value: !Sub '${AWS::StackName}-ZSCCInstance'
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-CloudConnector'
+      UserData: !Base64
+        'Fn::Join':
+          - |+
+
+          - - '[ZSCALER]'
+            - !Join
+              - =
+              - - CC_URL
+                - !Ref CloudConnectorProvUrl
+            - !Join
+              - =
+              - - SECRET_NAME
+                - !If [SecretsManagerNameNotEmpty, !Ref SecretManagerSecretName, 'ZS/CC/Credentials']
+            - !Join
+              - =
+              - - HTTP_PROBE_PORT
+                - !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '']
+  SrvcNetworkInterfaceAttachment:
+    Type: 'AWS::EC2::NetworkInterfaceAttachment'
+    Properties:
+      InstanceId:
+        Ref: Ec2Instance
+      NetworkInterfaceId:
+        Ref: ServiceXface
+      DeviceIndex: 1
+      DeleteOnTermination: false
+  SrvcNetworkInterface2Attachment:
+    Condition: CreateCCMediumServiceXfaces
+    Type: 'AWS::EC2::NetworkInterfaceAttachment'
+    Properties:
+      InstanceId:
+        Ref: Ec2Instance
+      NetworkInterfaceId:
+        Ref: ServiceXface2
+      DeviceIndex: 2
+      DeleteOnTermination: false
+  SrvcNetworkInterface3Attachment:
+    Condition: CreateCCMediumServiceXfaces
+    Type: 'AWS::EC2::NetworkInterfaceAttachment'
+    Properties:
+      InstanceId:
+        Ref: Ec2Instance
+      NetworkInterfaceId:
+        Ref: ServiceXface3
+      DeviceIndex: 3
+      DeleteOnTermination: false
+  SrvcNetworkInterface4Attachment:
+    Condition: CreateCCLargeServiceXfaces
+    Type: 'AWS::EC2::NetworkInterfaceAttachment'
+    Properties:
+      InstanceId:
+        Ref: Ec2Instance
+      NetworkInterfaceId:
+        Ref: ServiceXface4
+      DeviceIndex: 4
+      DeleteOnTermination: false
+Outputs:
+  MgmtPrivateIP:
+    Description: Zscaler Cloud Connector Instance Mgmt Private IP
+    Value: !GetAtt
+      - Ec2Instance
+      - PrivateIp
+    Export:
+      Name: !Sub '${AWS::StackName}-MgmtPrivateIP'
+  ServiceEni:
+    Description: Zscaler Cloud Connector Instance Service Eni
+    Value: !Ref ServiceXface
+    Export:
+      Name: !Sub '${AWS::StackName}-ServiceEni'
+  ImageIdInUse:
+    Description: AMI ID In use in the Zscaler Cloud Connector VM
+  CloudConnectorTemplateVersion:
+    Description: Cloud Connector Template Version
+    Value: 2022.5.20
