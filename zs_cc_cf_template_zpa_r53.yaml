@@ -1,0 +1,270 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Zscaler Cloud Connector ZPA
+Metadata:
+  LICENSE: 'Apache License, Version 2.0'
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: Zscaler Cloud Connector Configuration
+        Parameters:
+          - ZscalerCloudName
+          - ZPACloudName
+          - VPCID
+          - ResolverEPSubnets
+          - TargetIPs
+      - Label:
+          default: ZPA Applications List
+        Parameters:
+          - ApplicationDomainNames
+    ParameterLabels:
+      VPCID:
+        default: VPC ID
+      ResolverEPSubnets:
+        default: Outbound Resolver Endpoints Subnets
+      TargetIPs:
+        default: Resolver Target IPs
+      ZscalerCloudName:
+        default: Your Zscaler Cloud Name
+      ZPACloudName:
+        default: Your ZPA Cloud Name
+      ApplicationDomainNames:
+        default: Domain Names for ZPA Application
+  cfn-lint:
+    config:
+      ignore_checks:
+        - E9007
+
+Transform:
+  - Name: ZSCC-Macro
+    Parameters:
+      operation : ZSCCZPA
+
+Parameters:
+  VPCID:
+    Description: Select the VPC ID
+    Type: "AWS::EC2::VPC::Id"
+  ResolverEPSubnets:
+    Description: Subnets (max 6) for the Resolver Endpoints. The routes to reach the Target IPs from these subnets must be via Zscaler Cloud Connector(s)
+    Type: List<AWS::EC2::Subnet::Id>
+  TargetIPs:
+    Description: |
+      Target IPs (max 6) for the Resolver Endpoints to forward DNS queries. The Target IPs must be reachable via Zscaler Cloud Connector(s). If 
+      using for all dns queries rather than ZPA only destinations, please use your own DNS server endpoints as targets in this field.
+    Type: CommaDelimitedList
+    Default: 185.46.212.88 , 185.46.212.89
+  ZscalerCloudName:
+    Description: Your Zscaler Cloud Name
+    AllowedValues:
+      - ''
+      - zspreview.net
+      - zsdevel.net
+      - zsdemo.net
+      - zscalerbeta.net
+      - zscloud.net
+      - zscaler.net
+      - zscalerone.net
+      - zscalertwo.net
+      - zscalerthree.net
+      - zscalerfeed.net
+      - zscalergov.net
+      - zscalerten.net      
+    Default: zspreview.net
+    Type: String
+  ZPACloudName:
+    Description: Your ZPA Cloud
+    AllowedValues:
+      - ZPA
+      - ZPA-Beta
+    Default: ZPA
+    Type: String
+  ApplicationDomainNames:
+    Description: Comma Seperated Application Domain Names(Max 4096 characters)
+    Type: CommaDelimitedList
+
+Rules:
+  SubnetsInVPC:
+    Assertions:
+      - Assert:
+          'Fn::EachMemberEquals':
+            - 'Fn::ValueOfAll':
+                - 'AWS::EC2::Subnet::Id'
+                - VpcId
+            - !Ref VPCID
+        AssertDescription: All subnets must exist in the selected VPC
+
+Mappings:
+  ZPACloudMap:
+    ZPA: 
+      domain: prod.zpath.net
+    ZPA-Beta: 
+      domain: zpabeta.net
+
+Resources:
+  AppSegmentResolverSecurityGroup:
+    Description: Create App Segment Resolver Security Group
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPCID
+      GroupDescription: Enable app segment resolver comm
+      SecurityGroupIngress:
+        - IpProtocol: '-1'
+          FromPort: '0'
+          ToPort: '65535'
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          FromPort: '0'
+          ToPort: '65535'
+          CidrIp: 0.0.0.0/0
+  AppSegmentOutboundResolver:
+    Type: 'AWS::Route53Resolver::ResolverEndpoint'
+    Properties:
+      Direction: Outbound
+      IpAddresses:
+        - SubnetId: !GetAtt
+            - CustomServiceENIResource
+            - SubnetId
+        - SubnetId: !GetAtt
+            - CustomServiceENIResource
+            - SubnetId
+      Name: !Sub '${AWS::StackName}-ZSCCAppSegmentResolver'
+      SecurityGroupIds:
+        - !Ref AppSegmentResolverSecurityGroup
+      Tags:
+        - Key: Function
+          Value: ZSCCAppSegmentResolver
+
+  AppSegmentResolverZSCloudDomainRule:
+    Type: 'AWS::Route53Resolver::ResolverRule'
+    Properties:
+      DomainName: !Ref ZscalerCloudName
+      Name: !Sub '${AWS::StackName}-ZSCloudRule'
+      RuleType: SYSTEM
+      Tags:
+        - Key: Function
+          Value: ZSCloudRule
+  AppSegmentResolverZSCloudDomainRuleAssociation:
+    Type: 'AWS::Route53Resolver::ResolverRuleAssociation'
+    Properties:
+      Name: !Sub '${AWS::StackName}-ZSCloudRuleVPCAssociation'
+      ResolverRuleId: !Ref AppSegmentResolverZSCloudDomainRule
+      VPCId: !GetAtt
+        - CustomServiceENIResource
+        - VpcId
+
+  AppSegmentResolverZPACloudDomainRule:
+    Type: 'AWS::Route53Resolver::ResolverRule'
+    Properties:
+      DomainName: !FindInMap [ZPACloudMap, !Ref ZPACloudName, domain]
+      Name: !Sub '${AWS::StackName}-ZPACloudRule'
+      RuleType: SYSTEM
+      Tags:
+        - Key: Function
+          Value: ZPACloudRule
+  AppSegmentResolverZPACloudDomainRuleAssociation:
+    Type: 'AWS::Route53Resolver::ResolverRuleAssociation'
+    Properties:
+      Name: !Sub '${AWS::StackName}-ZPACloudRuleVPCAssociation'
+      ResolverRuleId: !Ref AppSegmentResolverZPACloudDomainRule
+      VPCId: !GetAtt
+        - CustomServiceENIResource
+        - VpcId
+
+  AppSegmentResolverZScalerComDomainRule:
+    Type: 'AWS::Route53Resolver::ResolverRule'
+    Properties:
+      DomainName: zscaler.com
+      Name: !Sub '${AWS::StackName}-ZScalerComRule'
+      RuleType: SYSTEM
+      Tags:
+        - Key: Function
+          Value: ZScalerComRule
+  AppSegmentResolverZScalerComDomainRuleAssociation:
+    Type: 'AWS::Route53Resolver::ResolverRuleAssociation'
+    Properties:
+      Name: !Sub '${AWS::StackName}-ZScalerComRuleVPCAssociation'
+      ResolverRuleId: !Ref AppSegmentResolverZScalerComDomainRule
+      VPCId: !GetAtt
+        - CustomServiceENIResource
+        - VpcId
+
+  AppSegmentResolverFreeBSDDomainRule:
+    Type: 'AWS::Route53Resolver::ResolverRule'
+    Properties:
+      DomainName: freebsd.org
+      Name: !Sub '${AWS::StackName}-FreeBSDRule'
+      RuleType: SYSTEM
+      Tags:
+        - Key: Function
+          Value: FreeBSDRule
+  AppSegmentResolverFreeBSDRuleAssociation:
+    Type: 'AWS::Route53Resolver::ResolverRuleAssociation'
+    Properties:
+      Name: !Sub '${AWS::StackName}-FreeBSDRuleVPCAssociation'
+      ResolverRuleId: !Ref AppSegmentResolverFreeBSDDomainRule
+      VPCId: !GetAtt
+        - CustomServiceENIResource
+        - VpcId
+
+  AppSegmentResolverNtpOrgDomainRule:
+    Type: 'AWS::Route53Resolver::ResolverRule'
+    Properties:
+      DomainName: ntp.org
+      Name: !Sub '${AWS::StackName}-NtpOrgCloudRule'
+      RuleType: SYSTEM
+      Tags:
+        - Key: Function
+          Value: NtpOrgCloudRule
+  AppSegmentResolverNtpOrgDomainRuleAssociation:
+    Type: 'AWS::Route53Resolver::ResolverRuleAssociation'
+    Properties:
+      Name: !Sub '${AWS::StackName}-ZscalerNetCloudRuleVPCAssociation'
+      ResolverRuleId: !Ref AppSegmentResolverNtpOrgDomainRule
+      VPCId: !GetAtt
+        - CustomServiceENIResource
+        - VpcId
+
+  AppSegmentResolverAmazonAWSRule:
+    Type: 'AWS::Route53Resolver::ResolverRule'
+    Properties:
+      DomainName: amazonaws.com
+      Name: !Sub '${AWS::StackName}-AmazonAWSRule'
+      RuleType: SYSTEM
+      Tags:
+        - Key: Function
+          Value: AmazonAWSRule
+  AppSegmentResolverAmazonAWSRuleAssociation:
+    Type: 'AWS::Route53Resolver::ResolverRuleAssociation'
+    Properties:
+      Name: AmazonAWSRuleVPCAssociation
+      ResolverRuleId: !Ref AppSegmentResolverAmazonAWSRule
+      VPCId: !GetAtt
+        - CustomServiceENIResource
+        - VpcId
+
+  AppSegmentResolverDomainRule:
+    Type: 'AWS::Route53Resolver::ResolverRule'
+    Properties:
+      DomainName: ''
+      Name: ''   
+      ResolverEndpointId: !Ref AppSegmentOutboundResolver
+      RuleType: FORWARD
+      Tags:
+        - Key: Function
+          Value: ''
+  AppSegmentResolverDomainRuleAssociation:
+    Type: 'AWS::Route53Resolver::ResolverRuleAssociation'
+    Properties:
+      Name: ''
+      ResolverRuleId: !Ref ''
+      VPCId: ''
+
+Outputs:
+  OutboundResolver:
+    Description: Outbound Resolver Endpoint
+    Value: !GetAtt
+      - AppSegmentOutboundResolver
+      - ResolverEndpointId
+  CloudConnectorZPATemplateVersion:
+    Description: Cloud Connector ZPA Template Version
+    Value: 2022.5.20
