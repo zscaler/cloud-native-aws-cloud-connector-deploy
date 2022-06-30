@@ -1,0 +1,11 @@
+# .pre-commit-config.yaml
+repos:
+-   repo: https://github.com/awslabs/cfn-python-lint
+    rev: v0.61.1 # The version of cfn-lint to use
+    hooks:
+    -   id: cfn-python-lint
+        files: zs_cc_cf_template_.*\.(json|yml|yaml)$
+-   repo: https://github.com/jorisroovers/gitlint
+    rev:  v0.17.0
+    hooks:
+    -   id: gitlint
