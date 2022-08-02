@@ -21,6 +21,9 @@ Metadata:
     config:
       ignore_checks:
         - E9007
+        - W2001
+        - E3003
+        - E2523
 Transform:
   - Name: ZSCC-Macro
     Parameters:
