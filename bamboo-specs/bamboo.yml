@@ -12,3 +12,7 @@ Scan Secrets:
     - script: |
         #!/usr/bin/env bash
         trufflehog git --no-update --only-verified file://.//
+    - script: |
+        #!/usr/bin/env bash
+        set -eo
+        cfn-lint cloudformation-templates/**/*.yaml
