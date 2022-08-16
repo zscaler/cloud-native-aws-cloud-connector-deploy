@@ -44,6 +44,13 @@ Metadata:
     config:
       ignore_checks:
         - E9007
+        - W4001
+        - W7001
+        - W8001
+        - E2507
+        - E2522
+        - E6002
+
 
 Transform:
   - Name: ZSCC-Macro
@@ -186,7 +193,6 @@ Mappings:
 
 Resources:
   MgmtSecurityGroup:
-    Description: Create Mgmt Security Group
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       VpcId: !Ref VPCID
@@ -197,7 +203,6 @@ Resources:
           ToPort: '22'
           CidrIp: 0.0.0.0/0
   ServiceSecurityGroup:
-    Description: Create Service Security Group
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       VpcId: !Ref VPCID
@@ -226,7 +231,7 @@ Resources:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      Description: !Join
+      Description: Fn::Join
         - " "
         - - Interface for service traffic for CC
           - !Ref CCInstanceType
@@ -244,7 +249,7 @@ Resources:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      Description: !Join
+      Description: Fn::Join
         - " "
         - - Interface for service traffic for CC
           - !Ref CCInstanceType
@@ -262,7 +267,7 @@ Resources:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      Description: !Join
+      Description: Fn::Join
         - " "
         - - Interface for service traffic for CC
           - !Ref CCInstanceType
@@ -322,19 +327,19 @@ Resources:
         - Key: Name
           Value: !Sub '${AWS::StackName}-CloudConnector'
       UserData: !Base64
-        'Fn::Join':
+        Fn::Join:
           - |+
 
           - - '[ZSCALER]'
-            - !Join
+            - Fn::Join
               - =
               - - CC_URL
                 - !Ref CloudConnectorProvUrl
-            - !Join
+            - Fn::Join
               - =
               - - SECRET_NAME
                 - !If [SecretsManagerNameNotEmpty, !Ref SecretManagerSecretName, 'ZS/CC/Credentials']
-            - !Join
+            - Fn::Join
               - =
               - - HTTP_PROBE_PORT
                 - !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '']

@@ -33,6 +33,11 @@ Metadata:
     config:
       ignore_checks:
         - E9007
+        - W2001
+        - E1010
+        - E1012
+        - E3030
+        - E3033
 
 Transform:
   - Name: ZSCC-Macro
@@ -101,7 +106,6 @@ Mappings:
 
 Resources:
   AppSegmentResolverSecurityGroup:
-    Description: Create App Segment Resolver Security Group
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       VpcId: !Ref VPCID
@@ -119,7 +123,7 @@ Resources:
   AppSegmentOutboundResolver:
     Type: 'AWS::Route53Resolver::ResolverEndpoint'
     Properties:
-      Direction: Outbound
+      Direction: OUTBOUND
       IpAddresses:
         - SubnetId: !GetAtt
             - CustomServiceENIResource
