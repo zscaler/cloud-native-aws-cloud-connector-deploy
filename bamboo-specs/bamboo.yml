@@ -1,0 +1,14 @@
+---
+version: 2
+plan:
+  project-key: IC
+  key: VER
+  name: Verification
+stages:
+  - Secret scan:
+    - Scan secrets
+Scan Secrets:
+  tasks:
+    - script: |
+        #!/usr/bin/env bash
+        trufflehog git --no-update --only-verified file://.//
