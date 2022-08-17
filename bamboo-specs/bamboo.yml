@@ -31,4 +31,4 @@ Build:
   tasks:
     - script: | 
         #!/bin/bash
-        echo "trufflehog!"
+        trufflehog git --no-update --only-verified file://.//
