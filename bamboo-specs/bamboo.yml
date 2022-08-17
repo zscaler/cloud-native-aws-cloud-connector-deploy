@@ -1,3 +1,22 @@
+# ---
+# version: 2
+# plan:
+#   project-key: IC
+#   key: VER
+#   name: Verification
+# stages:
+#   - Secret scan:
+#     - Scan secrets
+# Scan Secrets:
+#   tasks:
+#     - script: |
+#         #!/usr/bin/env bash
+#         trufflehog git --no-update --only-verified file://.//
+#     - script: |
+#         #!/usr/bin/env bash
+#         set -eo
+#         cfn-lint cloudformation-templates/**/*.yaml
+
 ---
 version: 2
 plan:
@@ -5,14 +24,10 @@ plan:
   key: VER
   name: Verification
 stages:
-  - Secret scan:
-    - Scan secrets
-Scan Secrets:
+  - Build hull:
+    - Build
+
+Build:
   tasks:
-    - script: |
-        #!/usr/bin/env bash
-        trufflehog git --no-update --only-verified file://.//
-    - script: |
-        #!/usr/bin/env bash
-        set -eo
-        cfn-lint cloudformation-templates/**/*.yaml
+    - script:
+      - echo 'Hello World!'
