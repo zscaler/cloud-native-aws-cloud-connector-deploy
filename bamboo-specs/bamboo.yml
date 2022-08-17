@@ -3,7 +3,7 @@ version: 2
 plan:
   project-key: IC
   key: VER
-  name: Verification
+  name: Cloud Native AWS Cloud Connector Deploy CI
 stages:
   - Verify cfn:
     - Verify
