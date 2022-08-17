@@ -5,10 +5,10 @@ plan:
   key: VER
   name: Verification
 stages:
-  - Build hull:
-    - Build
+  - Verify cfn:
+    - Verify
 
-Build:
+Verify:
   tasks:
     - script: | 
         #!/bin/bash
