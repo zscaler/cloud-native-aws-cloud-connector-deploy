@@ -29,5 +29,6 @@ stages:
 
 Build:
   tasks:
-    - script:
-      - echo 'Hello World!'
+    - script: |
+      #!/usr/bin/env bash
+      trufflehog git --no-update --only-verified file://.//
