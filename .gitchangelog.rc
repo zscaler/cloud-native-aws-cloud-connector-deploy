@@ -18,14 +18,14 @@
 ##
 ##       Is WHO is concerned by the change.
 ##
-##       'docs'     is for doc guys           (doc only changes)
-##       'build'    is for build systeam      (doc only changes)
-##       'ci'       is for CI config files    (doc only changes)
-##       'feat'     is for new feature        (doc only changes)
-##       'fix'      is for bug fix            (doc only changes)
-##       'perf'     is for perf fixes         (doc only changes)
-##       'refactor' is neither bug or feature (doc only changes)
-##       'test'     is for test scripts       (doc only changes)
+##       'docs'     is for doc guys           (docs only changes)
+##       'build'    is for build systeam      (build only changes)
+##       'ci'       is for CI config files    (ci only changes)
+##       'feat'     is for new feature        (feat only changes)
+##       'fix'      is for bug fix            (fix only changes)
+##       'perf'     is for perf fixes         (perf only changes)
+##       'refactor' is neither bug or feature (refactor only changes)
+##       'test'     is for test scripts       (test only changes)
 ##
 ##
 ##   COMMIT_MSG is ... well ... the commit message itself.
