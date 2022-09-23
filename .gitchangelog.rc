@@ -18,11 +18,15 @@
 ##
 ##       Is WHO is concerned by the change.
 ##
-##       'dev'  is for developpers (API changes, refactors...)
-##       'usr'  is for final users (UI changes)
-##       'pkg'  is for packagers   (packaging changes)
-##       'test' is for testers     (test only related changes)
-##       'doc'  is for doc guys    (doc only changes)
+##       'docs'     is for doc guys           (doc only changes)
+##       'build'    is for build systeam      (doc only changes)
+##       'ci'       is for CI config files    (doc only changes)
+##       'feat'     is for new feature        (doc only changes)
+##       'fix'      is for bug fix            (doc only changes)
+##       'perf'     is for perf fixes         (doc only changes)
+##       'refactor' is neither bug or feature (doc only changes)
+##       'test'     is for test scripts       (doc only changes)
+##
 ##
 ##   COMMIT_MSG is ... well ... the commit message itself.
 ##
@@ -62,8 +66,8 @@ ignore_regexps = [
     r'@cosmetic', r'!cosmetic',
     r'@refactor', r'!refactor',
     r'@wip', r'!wip',
-    r'^([cC]hg|[fF]ix|[nN]ew)\s*:\s*[p|P]kg:',
-    r'^([cC]hg|[fF]ix|[nN]ew)\s*:\s*[d|D]ev:',
+    r'^([cC]hg|[fF]ix|[nN]ew|[fF]eat)\s*:\s*[p|P]kg:',
+    r'^([cC]hg|[fF]ix|[nN]ew|[fF]eat)\s*:\s*[d|D]ev:',
     r'^(.{3,3}\s*:)?\s*[fF]irst commit.?\s*$',
     r'^$',  ## ignore commits with empty messages
 ]
@@ -157,7 +161,7 @@ tag_filter_regexp = r'^[0-9]+\.[0-9]+(\.[0-9]+)?$'
 ##
 ## This label will be used as the changelog Title of the last set of changes
 ## between last valid tag and HEAD if any.
-unreleased_version_label = "(unreleased)"
+unreleased_version_label = "0.1.0"
 
 
 ## ``output_engine`` is a callable
