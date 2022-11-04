@@ -5,10 +5,10 @@ This README serves are a quickstart guide to deploy Zscaler Cloud Connector reso
 A detailed deployment guide can be found [here](https://help.zscaler.com/cloud-connector/about-cloud-automation-scripts).
 
 ## Pre-Deployment Template
-[placeholder]
+can be found [here](cloudformation-templates/zs_cc_cf_template_zscc_macro.yaml)
 ## Starter Deployment Template
-[placeholder]
+can be found [here](cloudformation-templates/zs_cc_cf_template_simple.yaml)
 ## Add-on Template with ZPA
-[placeholder]
+can be found [here](cloudformation-templates/zs_cc_cf_template_zpa_r53.yaml)
 ## Add-on Template with Gateway Load Balancer (GWLB)
-[placeholder]
+can be found [here](cloudformation-templates/zs_cc_cf_template_gwlb.yaml)
