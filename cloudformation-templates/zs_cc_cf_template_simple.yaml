@@ -280,10 +280,10 @@ Resources:
           Value: !Sub '${AWS::StackName}-Service4'
         - Key: Name
           Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF4'
-  SecretManagerIAMRole:
+  CcIAMRole:
     Type: 'AWS::IAM::Role'
     Properties:
-      Description: ZS Cloud Connector VM IAM Role for Secrets Manager
+      Description: ZS Cloud Connector VM IAM Role
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -302,15 +302,32 @@ Resources:
                 - Effect: Allow
                   Action:
                     - 'secretsmanager:GetSecretValue'
-      ManagedPolicyArns:
-        # - 'arn:aws:iam::aws:policy/SecretsManagerReadWrite'
-        # SSM policy Commented out for non-poc deployments
-        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+          - PolicyName: AllowSSMControlChannel
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - 'ssm:UpdateInstanceInformation'
+                    - 'ssmmessages:CreateControlChannel'
+                    - 'ssmmessages:CreateDataChannel'
+                    - 'ssmmessages:OpenControlChannel'
+                    - 'ssmmessages:OpenDataChannel'
+          - PolicyName: AllowDelegationForCallhome
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - 'sts:AssumeRole'
+                  Resources:
+                    - "arn:aws:iam::223544365242:role/callhome-delegation-role"
+
   CCHostProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
       Roles:
-        - !Ref SecretManagerIAMRole
+        - !Ref CcIAMRole
   Ec2Instance:
     Type: 'AWS::EC2::Instance'
     Properties:

@@ -1,0 +1,636 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Zscaler Cloud Connector Auto Scaling Group Template
+
+Metadata:
+  LICENSE: 'Apache License, Version 2.0'
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: Network Configuration
+        Parameters:
+          - NetworkVpcId
+          - NetworkAvailabilityZones
+          - NetworkCcSubnetIds
+      - Label:
+          default: Auto-scaling Group Configuration
+        Parameters:
+          - AsgMinSize
+          - AsgMaxSize
+          - AsgHealthCheckGracePeriod
+          - AsgLaunchTemplateVersion
+          - AsgWarmPoolReuseOnScaleIn
+          - AsgTargetTrackingMetric
+          - AsgTargetCpuUtilValue
+          - AsgWarmPoolEnabled
+          - AsgWarmPoolState
+          - AsgWarmPoolMaxGroupPreparedCapacity
+          - AsgWarmPoolMinSize
+      - Label:
+          default: Gateway Loadbalancer Configuration
+        Parameters:
+          - GwlbVpcEpSubnetIds
+          - GwlbVPCEpServicePrincipals
+          - GwlbAutoAcceptVpcEps
+          - GwlbHealthCheckInterval
+          - GwlbHealthyThreshold
+          - GwlbUnhealthyThreshold
+          - GwlbCrossZoneLbEnabled
+      - Label:
+          default: Zscaler Configuration
+        Parameters:
+          - ZscalerOsAmi
+          - ZscalerKeyPairName
+          - ZscalerCcInstanceProfile
+          - ZscalerCcCallhomeEnabled
+          - ZscalerCcMgmtIntfSecurityGroup
+          - ZscalerCcSrvcIntfSecurityGroup
+          - ZscalerSecretManagerSecretName
+          - ZscalerCcInstanceSize
+          - ZscalerAwsEc2InstanceType
+          - ZscalerCloudConnectorProvUrl
+          - ZscalerHttpProbePort
+
+    ParameterLabels:
+      NetworkVpcId:
+        default: Vpc Id
+      NetworkAvailabilityZones:
+        default: Availability Zones to deploy Vms/Gateway LB Eps
+      NetworkCcSubnetIds:
+        default: Subnet IDs for the Zscaler Cloud Connector ASG
+
+      AsgHealthCheckGracePeriod:
+        default: Auto-scaling Group Health Check Grace Period
+      AsgLaunchTemplateVersion:
+        default: Auto-scaling Group Launch Template Version
+      AsgMinSize:
+        default: Auto-scaling Group Minimum Size
+      AsgMaxSize:
+        default: Auto-scaling Group Maximum Size
+      AsgWarmPoolReuseOnScaleIn:
+        default: Auto-scaling Group Reuse Instances on Scale In
+      AsgTargetTrackingMetric:
+        default: Auto-scaling Group Target-tracking Metric
+      AsgTargetCpuUtilValue:
+        default: Auto-scaling Group Target Cpu Utilization Value
+      AsgWarmPoolEnabled:
+        default: Auto-scaling Group Warm Pool Enabled
+      AsgWarmPoolState:
+        default: Auto-scaling Group Warm Pool State
+      AsgWarmPoolMaxGroupPreparedCapacity:
+        default: Auto-scaling Group Warm Pool Max Group Prepared Capacity
+      AsgWarmPoolMinSize:
+        default: Auto-scaling Group Warm Pool Minimum Size
+
+
+      GwlbAutoAcceptVpcEps:
+        default: Automatically accept newly created Vpc Eps?
+      GwlbCrossZoneLbEnabled:
+        default: Enable Cross-zone Loadbalancing
+      GwlbHealthCheckInterval:
+        default: GWLB probe Health Check Interval
+      GwlbHealthyThreshold:
+        default: GWLB probe Healthy Threshold
+      GwlbUnhealthyThreshold:
+        default: GWLB probe Unhealthy Threshold
+      GwlbVPCEpServicePrincipals:
+        default: Vpc Ep Service Principals
+      GwlbVpcEpSubnetIds:
+        default: Vpc Ep Subnets to create Vpc EPs in (one per Az)
+      
+      ZscalerHttpProbePort:
+        default: HTTP Monitor Probe Port
+      ZscalerKeyPairName:
+        default: Zscaler Cloud Connector instance key pair
+      ZscalerSecretManagerSecretName:
+        default: Secrets Manager Secret Name
+      ZscalerAwsEc2InstanceType:
+        default: Zscaler Cloud Connector VM AWS EC2 instance type
+      ZscalerCcCallhomeEnabled:
+        default: Enable Cloud Connector Callhome
+      ZscalerCcInstanceProfile:
+        default: Existing IAM Role to use for Zscaler Cloud Connector
+      ZscalerCcInstanceSize:
+        default: Zscaler Cloud Connector instance size
+      ZscalerCcMgmtIntfSecurityGroup:
+        default: Zscaler Cloud Connector Mgmt Intf Security Group
+      ZscalerCcSrvcIntfSecurityGroup:
+        default: Zscaler Cloud Connector Srvc Intf Security Group
+      ZscalerCloudConnectorProvUrl:
+        default: Cloud Connector Provisioning URL
+      ZscalerOsAmi:
+        default: Zscaler product ami
+  cfn-lint:
+    config:
+      ignore_checks:
+        - E9007
+        - W4001
+        - W7001
+        - W8001
+        - E2507
+        - E2522
+        - E6002
+        - W2001
+        - E3003
+        - E2523
+
+Transform:
+  - Name: ZSCC-Macro
+    Parameters:
+      operation : ZSCCASG
+
+Parameters:
+      NetworkVpcId:
+        Description: "The VPC ID where you want to deploy your Cloud Connector Instances."
+        Type: 'AWS::EC2::VPC::Id'
+        Default: 'vpc-01589fba971e391b9'
+      NetworkAvailabilityZones:
+        Type: List<AWS::EC2::AvailabilityZone::Name>
+        Description: "A list of required Availability Zones to deploy Vms/Gateway LB Eps"
+        Default: 'us-west-2a,us-west-2b'
+      NetworkCcSubnetIds:
+        Description: "The subnet where the Zscaler Cloud Connector AMI is deployed."
+        Type: List<AWS::EC2::Subnet::Id>
+        Default: 'subnet-08c4e0b9ddf52f579,subnet-0e2357c00569d80b0'
+
+      AsgHealthCheckGracePeriod:
+        Type: Number
+        MinValue: 900
+        Description: >-
+          The amount of time until EC2 Auto Scaling performs the first health check on new instances after they are put into service
+        Default: 900
+      # AsgLaunchTemplateVersion:
+      #   Type: String
+      #   Description: >-
+      #     Launch template version. Can be version number, \"$Latest\" (default) or \"$Default\"
+      #   AllowedPattern: '^(\$Latest|\$Default|[0-9]+)$'
+      #   Default: "$Latest"
+      AsgMinSize:
+        Type: Number
+        Description: >-
+          Minimum number of Cloud Connectors to maintain in Autoscaling group
+        Default: 2
+      AsgMaxSize:
+        Type: Number
+        Description: >-
+          Maximum number of Cloud Connectors to maintain in Autoscaling group
+        Default: 4
+      AsgTargetTrackingMetric:
+        Type: String
+        Description: >-
+          The AWS ASG pre-defined target tracking metric type. Cloud Connector recommends ASGAverageCPUUtilization
+        AllowedValues:
+          - "ASGAverageCPUUtilization"
+          - "ASGAverageNetworkIn"
+          - "ASGAverageNetworkOut"
+        Default: "ASGAverageCPUUtilization"
+      AsgTargetCpuUtilValue:
+        Type: Number
+        Description: >-
+          Target value number for autoscaling policy CPU utilization target tracking. 
+          ie: trigger a scale in/out to keep average CPU Utliization percentage across all instances at/under this number
+        Default: 20
+      # AsgWarmPoolEnabled:
+      #   Type: String
+      #   Description: "Select \"true\" to enable Auto-scaling Group warm pool (default), else \"false\""
+      #   Default: false
+      #   AllowedValues:
+      #     - true
+      #     - false
+      # AsgWarmPoolReuseOnScaleIn:
+      #   Type: String
+      #   Description: "Select \"true\" to enable Auto-scaling Group reuse instance on scale-in, else \"false\" (default)"
+      #   Default: false
+      #   AllowedValues:
+      #     - true
+      #     - false
+      # AsgWarmPoolState:
+      #   Type: String
+      #   Description: >-
+      #     Sets the instance state to transition to after the lifecycle hooks finish. Valid values are: Stopped (default), Running or Hibernated. 
+      #     Ignored when 'Auto-scaling Group Warm Pool Enabled' is No
+      #   Default: "Stopped"
+      #   AllowedValues:
+      #     - "Stopped"
+      #     - "Running"
+      #     # - "Hibernated"
+      # AsgWarmPoolMaxGroupPreparedCapacity:
+      #   Type: String
+      #   Description: >-
+      #     Specifies the total maximum number of instances that are allowed to be in the warm pool or in any state except Terminated for the Auto Scaling group. 
+      #     Ignored when 'Auto-scaling Group Warm Pool Enabled' is No
+      #   AllowedPattern: '^(.*|[0-9]+)$'
+      #   ConstraintDescription: >-
+      #     When specified, Auto-scaling Group Warm Pool Max Group Prepared Capacity should be a whole number          
+      # AsgWarmPoolMinSize:
+      #   Type: String
+      #   Description: >-
+      #     Specifies the minimum number of instances to maintain in the warm pool. This helps you to ensure that there is always a certain number of warmed instances available to handle traffic spikes. 
+      #     Ignored when 'Auto-scaling Group Warm Pool Enabled' is No
+      #   AllowedPattern: '^(.*|[0-9]+)$'
+      #   ConstraintDescription: >-
+      #     When specified, Auto-scaling Group Warm Pool Minimum Size should be a whole number
+      
+      GwlbAutoAcceptVpcEps:
+        Type: String
+        Description: "Select \"Yes\" to auto-accept new Vpc Eps (default), else \"No\""
+        Default: "Yes"
+        AllowedValues:
+          - "Yes"
+          - "No"
+      GwlbCrossZoneLbEnabled:
+        Type: String
+        Description: "Select \"true\" to enable cross-zone loadbalancing (default), else \"false\""
+        Default: true
+        AllowedValues:
+          - true
+          - false
+      GwlbHealthCheckInterval:
+        Type: Number
+        MinValue: 5
+        MaxValue: 300
+        ConstraintDescription: >-
+          Health Check Interval: Minimum 5 and maximum 300 seconds
+        Description: "Interval for GWLB target group health check probing, in seconds, of Cloud Connector targets"
+        Default: 20
+      GwlbHealthyThreshold:
+        Type: Number
+        MinValue: 2
+        MaxValue: 10
+        ConstraintDescription: >-
+          Healthy Threshold: Minimum 2 and maximum 10
+        Description: "The number of successful health checks required before an unhealthy target becomes healthy"
+        Default: 3
+      GwlbUnhealthyThreshold:
+        Type: Number
+        MinValue: 2
+        MaxValue: 10
+        ConstraintDescription: >-
+          UnHealthy Threshold: Minimum 2 and maximum 10
+        Description: "The number of unsuccessful health checks required before a healthy target becomes unhealthy"
+        Default: 3
+      GwlbVPCEpServicePrincipals:
+        Type: CommaDelimitedList
+        Default: ""
+        Description: "[Optional] A List of comma-separated service principal ARNs"
+      GwlbVpcEpSubnetIds:
+        Description: >- 
+          [Optional] A List of comma-separated Vpc Ep Subnets to create Vpc EPs in (one per Az).
+          Specifying subnets here will override Cloud-connector subnets being used for Vpc Eps
+        Default: ""
+        Type: CommaDelimitedList
+
+      ZscalerAwsEc2InstanceType:
+        Type: String
+        Description: "The Amazon EC2 instance type for the ZS instances."
+        Default: "m5.large"
+        AllowedValues:
+          - "t3.medium"
+          - "c5.large"
+          - "c5a.large"
+          - "m5.large"
+      ZscalerCcCallhomeEnabled:
+        Type: String
+        Description: "Select \"Yes\" to create and assign callhome policy (default), else \"No\""
+        Default: "Yes"
+        AllowedValues:
+          - "Yes"
+          - "No"
+      ZscalerCcInstanceProfile:
+        Description: "[Optional] An Existing IAM Role ARN to use for Cc"
+        Type: String
+        Default: "arn:aws:iam::223544365242:instance-profile/ASGGWLB3-CcInstanceProfile-hseOMwjBXTSi"
+        AllowedPattern: '^$|^arn:aws:iam::[0-9]+:instance-profile/.*$'
+        ConstraintDescription: >-
+          Please specify a valid AWS IAM Role ARN
+      ZscalerCcInstanceSize:
+        AllowedValues:
+          - "small"
+        Default: "small"
+        Description: "The instance type for Zscaler Cloud Connector (small). More sizes to come in the future."
+        Type: String    
+      ZscalerCcMgmtIntfSecurityGroup:
+        Description: "[Optional] An Existing Security Group Id to apply to Mgmt Interfaces"
+        Type: String
+        Default: "sg-0613790576fe01e96"
+        AllowedPattern: "^$|^sg-[0-9a-f]+$"
+        ConstraintDescription: >-
+          Please enter a valid AWS:EC2::SecurityGroup::Id
+      ZscalerCcSrvcIntfSecurityGroup:
+        Description: "[Optional] An Existing Security Group Id to apply to Service Interfaces"
+        Type: String
+        Default: "sg-0c1efb7349462a7a0"
+        AllowedPattern: "^$|^sg-[0-9a-f]+$"
+        ConstraintDescription: >-
+          Please enter a valid AWS:EC2::SecurityGroup::Id
+      ZscalerCloudConnectorProvUrl:
+        AllowedPattern: '(admin|connector).zs.*.net(/ec)?/w?api/v1/provUrl\?name=[\w-_]+'
+        ConstraintDescription: >-
+          Please input the Cloud Connector Provisioning Template URL to use from
+          your Zscaler Cloud Connector Portal
+        Description: "Cloud Connector Prov URL"
+        Type: String
+        Default: 'connector.zscalerbeta.net/api/v1/provUrl?name=aws_prov_temp_2'
+      ZscalerHttpProbePort:
+        Type: String
+        AllowedPattern: '^(80|102[4-9]|10[3-9]\d|1[1-9]\d{2}|[2-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$'
+        ConstraintDescription: >-
+          The HTTP probe port's allowed values are [80, 1024-65535]
+        Description: "HTTP Monitor probe port to listen on for monitoring probes"
+        Default: 50000
+      ZscalerKeyPairName:
+        Type: AWS::EC2::KeyPair::KeyName
+        Description: "AWS Ec2 Instance Access KeyPair"
+        Default: 'AniKeyPair1'
+      ZscalerSecretManagerSecretName:
+        Type: String
+        Default: "ZS/CC/credentials"
+        Description: "Secret Manager Secret Name, defaults to ZS/CC/credentials"
+      ZscalerOsAmi:
+        Type: AWS::EC2::Image::Id
+        Description: "Amazon Ec2 Image Id to use for the deployment"
+        Default: "ami-04794575402b9e990"
+
+Conditions:
+  ZscalerSecretsManagerNameNotEmpty: !Not
+    - !Equals 
+        - !Ref ZscalerSecretManagerSecretName
+        - ""
+  ZscalerHttpProbePortNotEmpty: !Not
+    - !Equals 
+        - !Ref ZscalerHttpProbePort
+        - ""
+  CreateMgmtIntfSecurityGroup: !Equals 
+    - !Ref ZscalerCcMgmtIntfSecurityGroup
+    - ""
+  CreateSrvcIntfSecurityGroup: !Equals 
+    - !Ref ZscalerCcSrvcIntfSecurityGroup
+    - ""
+  CreateIamAndInstanceProfile: !Equals
+    - !Ref ZscalerCcInstanceProfile
+    - ""
+  # CreateAsgWarmPool: !Equals
+  #   - !Ref AsgWarmPoolEnabled
+  #   - true
+  CreateAsgWarmPool: !Equals
+    - WarmPoolPlaceholder
+    - WarmPoolPlaceholder
+
+Mappings:
+  Product2Code:
+    CloudConnector:
+      Code: 2l8tfysndbav4tv2nfjwak3cu
+
+Resources: 
+  MgmtSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Condition: CreateMgmtIntfSecurityGroup
+    Properties:
+      VpcId: !Ref NetworkVpcId
+      GroupDescription: Enable intra cloud comm
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          FromPort: '0'
+          ToPort: '0'
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: TCP
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+  
+  ServiceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Condition: CreateSrvcIntfSecurityGroup
+    Properties:
+      VpcId: !Ref NetworkVpcId
+      GroupDescription: Allow all VPC traffic
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          FromPort: '0'
+          ToPort: '0'
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: '-1'
+          FromPort: '0'
+          ToPort: '65535'
+          CidrIp: 0.0.0.0/0
+  
+  CcGetSecretsPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Description: Zscaler Cloud Connector Get Secrets Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'secretsmanager:GetSecretValue'
+
+  CcSsmControlPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Description: Zscaler Cloud Connector Ssm Control Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'ssm:UpdateInstanceInformation'
+              - 'ssmmessages:CreateControlChannel'
+              - 'ssmmessages:CreateDataChannel'
+              - 'ssmmessages:OpenControlChannel'
+              - 'ssmmessages:OpenDataChannel'
+            Resource:
+              - '*'
+
+  CcCallHomePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Description: Zscaler Cloud Connector Call Home Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'sts:AssumeRole'
+            Resource:
+              - 'arn:aws:iam::223544365242:role/callhome-delegation-role'
+
+  CcIamRole:
+    Condition: CreateIamAndInstanceProfile
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Description: Zscaler Cloud Connector Instance IAM Role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - !Ref CcGetSecretsPolicy
+        - !Ref CcSsmControlPolicy
+        - !Ref CcCallHomePolicy
+  
+  CcInstanceProfile:
+    Condition: CreateIamAndInstanceProfile
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Roles:
+        - !Ref CcIamRole
+
+  CcLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties: 
+      LaunchTemplateName: !Sub '${AWS::StackName}-CloudConnectorLaunchTemplate'
+      LaunchTemplateData: 
+        InstanceType: !Ref ZscalerAwsEc2InstanceType
+        KeyName: !Ref ZscalerKeyPairName
+        UserData: !Base64
+          Fn::Join:
+            - |+
+
+            - - '[ZSCALER]'
+              - Fn::Join
+                - =
+                - - CC_URL
+                  - !Ref ZscalerCloudConnectorProvUrl
+              - Fn::Join
+                - =
+                - - SECRET_NAME
+                  - !If [ZscalerSecretsManagerNameNotEmpty, !Ref ZscalerSecretManagerSecretName, 'ZS/CC/Credentials']
+              - Fn::Join
+                - =
+                - - HTTP_PROBE_PORT
+                  - !If [ZscalerHttpProbePortNotEmpty, !Ref ZscalerHttpProbePort, '']
+        IamInstanceProfile: !If 
+          - CreateIamAndInstanceProfile
+          - Arn: !GetAtt [ CcInstanceProfile, Arn ]
+          - Arn: !Ref ZscalerCcInstanceProfile
+        NetworkInterfaces:
+          - Description: Interface for service traffic
+            DeviceIndex: 0
+            Groups: 
+              - "Fn::If": [CreateSrvcIntfSecurityGroup, !Ref ServiceSecurityGroup, !Ref ZscalerCcSrvcIntfSecurityGroup]
+            AssociatePublicIpAddress: false
+          - Description: Interface for mgmt traffic
+            DeviceIndex: 1
+            Groups: 
+              - "Fn::If": [CreateMgmtIntfSecurityGroup, !Ref MgmtSecurityGroup, !Ref ZscalerCcMgmtIntfSecurityGroup]
+            AssociatePublicIpAddress: false
+         
+  CcAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties: 
+      AutoScalingGroupName: !Sub '${AWS::StackName}-CloudConnectorAutoScalingGroup'
+      HealthCheckGracePeriod: !Ref AsgHealthCheckGracePeriod
+      HealthCheckType: ELB
+      LaunchTemplate: 
+        LaunchTemplateId: !Ref CcLaunchTemplate
+        Version: !GetAtt CcLaunchTemplate.LatestVersionNumber
+      MaxSize: !Ref AsgMaxSize
+      MinSize: !Ref AsgMinSize
+      TargetGroupARNs: 
+        - !Ref CcGwlbTargetGroup
+      VPCZoneIdentifier: !Ref NetworkCcSubnetIds
+
+  # CcAsgWarmPool:
+  #   Condition: CreateAsgWarmPool
+  #   Type: AWS::AutoScaling::WarmPool
+  #   Properties: 
+  #     AutoScalingGroupName: !Ref CcAutoScalingGroup
+  #     InstanceReusePolicy: 
+  #       ReuseOnScaleIn: !Ref AsgWarmPoolReuseOnScaleIn
+  #     MaxGroupPreparedCapacity: !Ref AsgWarmPoolMaxGroupPreparedCapacity
+  #     MinSize: !Ref AsgWarmPoolMinSize
+  #     PoolState: !Ref AsgWarmPoolState
+
+  CcGwlbTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckPath: /?cchealth
+      HealthCheckPort: !Ref ZscalerHttpProbePort
+      HealthCheckProtocol: HTTP
+      Name: !Join
+        - "-"
+        - - CcGwlbTargetGroup
+          - !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]
+      Port: 6081
+      Protocol: GENEVE
+      TargetType: instance
+  
+  CcGwlbListener:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref CcGwlbTargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref CcGwlb
+  
+  CcVpcEpService:
+    Type: 'AWS::EC2::VPCEndpointService'
+    Properties:
+      AcceptanceRequired: false
+      GatewayLoadBalancerArns:
+        - !Ref CcGwlb
+  
+  CcVpcEp:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      ServiceName: !Join
+        - .
+        - - com.amazonaws.vpce
+          - !Ref AWS::Region
+          - !Ref CcVpcEpService
+      VpcEndpointType: GatewayLoadBalancer
+  
+  CcGwlb:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      LoadBalancerAttributes:
+        - Key: load_balancing.cross_zone.enabled
+          Value: !Ref GwlbCrossZoneLbEnabled
+      Name: !Join
+        - "-"
+        - - CcGwlb
+          - !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]
+      Type: gateway
+
+Outputs:
+  ImageIdInUse:
+    Description: AMI ID In use in the Zscaler Cloud Connector VM
+    Value: ""
+  CloudConnectorTemplateVersion:
+    Description: Cloud Connector Template Version
+    Value: 2022.12.01
+  ZscalerCcInstanceProfileInUse:
+    Description: IAM role being used by the CcInstances
+    Value: !If 
+          - CreateIamAndInstanceProfile
+          - !GetAtt [ CcInstanceProfile, Arn ]
+          - !Ref ZscalerCcInstanceProfile
+  ZscalerCcMgmtIntfSecurityGroupInUse:
+    Description: Mgmt Intf Security Group being used by the CcInstances
+    Value: !If
+            - CreateMgmtIntfSecurityGroup
+            - !GetAtt [ MgmtSecurityGroup, GroupId ]
+            - !Ref ZscalerCcMgmtIntfSecurityGroup
+  ZscalerCcSrvcIntfSecurityGroupInUse:
+    Description: Srvc Intf Security Group being used by the CcInstances
+    Value: !If
+            - CreateSrvcIntfSecurityGroup
+            - !GetAtt [ ServiceSecurityGroup, GroupId ]
+            - !Ref ZscalerCcSrvcIntfSecurityGroup
+  ZScalerCcGwlb:
+    Description: Cloud Connector Gateway Load-balancer
+    Value: !Ref CcGwlb
+  ZscalerCcVpcEpService:
+    Description: Zscaler Cloud Connector VPC Endpoint Service
+    Value: !Ref CcVpcEpService
+  ZscalerCcVpcEp:
+    Description: Use this VPC EP for route nexthops
+    Value: !Ref CcVpcEp
