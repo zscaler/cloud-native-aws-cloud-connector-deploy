@@ -266,13 +266,13 @@ Resources:
               resources = template.get("Resources")
               outputs = template.get("Outputs")
 
-              # add SecretArn to SecretManagerIAMRole Policy
+              # add SecretArn to CcIamRole Policy
               # first fetch the policy document
-              policy_doc = resources["SecretManagerIAMRole"]["Properties"]["Policies"][0]["PolicyDocument"]
+              policy_doc = resources["CcGetSecretsPolicy"]["Properties"]["PolicyDocument"]
               
               # update the document
               policy_doc["Statement"][0]["Resource"] = responseData["SecretArn"]
-              resources["SecretManagerIAMRole"]["Properties"]["Policies"][0]["PolicyDocument"] = policy_doc
+              resources["CcGetSecretsPolicy"]["Properties"]["PolicyDocument"] = policy_doc
 
               # add ami id to ec-2 resource
               resources["Ec2Instance"]["Properties"]["ImageId"] = responseData["ImageId"]

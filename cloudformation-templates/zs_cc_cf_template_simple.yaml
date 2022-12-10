@@ -324,7 +324,6 @@ Resources:
               - 'arn:aws:iam::223544365242:role/callhome-delegation-role'
 
   CcIamRole:
-    Condition: CreateIamAndInstanceProfile
     Type: 'AWS::IAM::Role'
     Properties:
       Description: Zscaler Cloud Connector Instance IAM Role

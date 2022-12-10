@@ -143,15 +143,12 @@ Parameters:
       NetworkVpcId:
         Description: "The VPC ID where you want to deploy your Cloud Connector Instances."
         Type: 'AWS::EC2::VPC::Id'
-        Default: 'vpc-01589fba971e391b9'
       NetworkAvailabilityZones:
         Type: List<AWS::EC2::AvailabilityZone::Name>
         Description: "A list of required Availability Zones to deploy Vms/Gateway LB Eps"
-        Default: 'us-west-2a,us-west-2b'
       NetworkCcSubnetIds:
         Description: "The subnet where the Zscaler Cloud Connector AMI is deployed."
         Type: List<AWS::EC2::Subnet::Id>
-        Default: 'subnet-08c4e0b9ddf52f579,subnet-0e2357c00569d80b0'
 
       AsgHealthCheckGracePeriod:
         Type: Number
@@ -312,14 +309,12 @@ Parameters:
       ZscalerCcMgmtIntfSecurityGroup:
         Description: "[Optional] An Existing Security Group Id to apply to Mgmt Interfaces"
         Type: String
-        Default: "sg-0613790576fe01e96"
         AllowedPattern: "^$|^sg-[0-9a-f]+$"
         ConstraintDescription: >-
           Please enter a valid AWS:EC2::SecurityGroup::Id
       ZscalerCcSrvcIntfSecurityGroup:
         Description: "[Optional] An Existing Security Group Id to apply to Service Interfaces"
         Type: String
-        Default: "sg-0c1efb7349462a7a0"
         AllowedPattern: "^$|^sg-[0-9a-f]+$"
         ConstraintDescription: >-
           Please enter a valid AWS:EC2::SecurityGroup::Id
@@ -330,7 +325,6 @@ Parameters:
           your Zscaler Cloud Connector Portal
         Description: "Cloud Connector Prov URL"
         Type: String
-        Default: 'connector.zscalerbeta.net/api/v1/provUrl?name=aws_prov_temp_2'
       ZscalerHttpProbePort:
         Type: String
         AllowedPattern: '^(80|102[4-9]|10[3-9]\d|1[1-9]\d{2}|[2-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$'
@@ -341,7 +335,6 @@ Parameters:
       ZscalerKeyPairName:
         Type: AWS::EC2::KeyPair::KeyName
         Description: "AWS Ec2 Instance Access KeyPair"
-        Default: 'AniKeyPair1'
       ZscalerSecretManagerSecretName:
         Type: String
         Default: "ZS/CC/credentials"
