@@ -368,17 +368,17 @@ Resources:
           - |+
 
           - - '[ZSCALER]'
-            - Fn::Join
-              - =
-              - - CC_URL
+            - !Join
+              - '='
+              - - 'CC_URL'
                 - !Ref CloudConnectorProvUrl
-            - Fn::Join
-              - =
-              - - SECRET_NAME
+            - !Join
+              - '='
+              - - 'SECRET_NAME'
                 - !If [SecretsManagerNameNotEmpty, !Ref ZscalerSecretManagerSecretName, 'ZS/CC/Credentials']
-            - Fn::Join
-              - =
-              - - HTTP_PROBE_PORT
+            - !Join
+              - '='
+              - - 'HTTP_PROBE_PORT'
                 - !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '']
   SrvcNetworkInterfaceAttachment:
     Type: 'AWS::EC2::NetworkInterfaceAttachment'

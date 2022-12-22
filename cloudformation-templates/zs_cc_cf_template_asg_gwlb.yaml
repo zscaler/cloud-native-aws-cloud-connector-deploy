@@ -30,7 +30,7 @@ Metadata:
         Parameters:
           - GwlbVpcEpSubnetIds
           - GwlbVPCEpServicePrincipals
-          - GwlbAutoAcceptVpcEps
+          - GwlbAcceptanceRequiredVpcEps
           - GwlbHealthCheckInterval
           - GwlbHealthyThreshold
           - GwlbUnhealthyThreshold
@@ -82,8 +82,8 @@ Metadata:
         default: Auto-scaling Group Warm Pool Minimum Size
 
 
-      GwlbAutoAcceptVpcEps:
-        default: Automatically accept newly created Vpc Eps?
+      GwlbAcceptanceRequiredVpcEps:
+        default: Require acceptance for newly created Vpc Eps?
       GwlbCrossZoneLbEnabled:
         default: Enable Cross-zone Loadbalancing
       GwlbHealthCheckInterval:
@@ -132,7 +132,7 @@ Metadata:
         - W2001
         - E3003
         - E2523
-        - W8003
+        # - W8003
 
 Transform:
   - Name: ZSCC-Macro
@@ -178,8 +178,8 @@ Parameters:
           The AWS ASG pre-defined target tracking metric type. Cloud Connector recommends ASGAverageCPUUtilization
         AllowedValues:
           - "ASGAverageCPUUtilization"
-          - "ASGAverageNetworkIn"
-          - "ASGAverageNetworkOut"
+          # - "ASGAverageNetworkIn"
+          # - "ASGAverageNetworkOut"
         Default: "ASGAverageCPUUtilization"
       AsgTargetCpuUtilValue:
         Type: Number
@@ -228,13 +228,13 @@ Parameters:
       #   ConstraintDescription: >-
       #     When specified, Auto-scaling Group Warm Pool Minimum Size should be a whole number
       
-      GwlbAutoAcceptVpcEps:
+      GwlbAcceptanceRequiredVpcEps:
         Type: String
-        Description: "Select \"Yes\" to auto-accept new Vpc Eps (default), else \"No\""
-        Default: "Yes"
+        Description: "Select \"true\" to require acceptance for new Vpc Eps, else \"false\" (default)"
+        Default: false
         AllowedValues:
-          - "Yes"
-          - "No"
+          - true
+          - false
       GwlbCrossZoneLbEnabled:
         Type: String
         Description: "Select \"true\" to enable cross-zone loadbalancing (default), else \"false\""
@@ -266,7 +266,7 @@ Parameters:
           UnHealthy Threshold: Minimum 2 and maximum 10
         Description: "The number of unsuccessful health checks required before a healthy target becomes unhealthy"
         Default: 3
-      GwlbVPCEpServicePrincipals:
+      GwlbVpcEpServicePrincipals:
         Type: CommaDelimitedList
         Default: ""
         Description: "[Optional] A List of comma-separated service principal ARNs"
@@ -288,15 +288,15 @@ Parameters:
           - "m5.large"
       ZscalerCcCallhomeEnabled:
         Type: String
-        Description: "Select \"Yes\" to create and assign callhome policy (default), else \"No\""
-        Default: "Yes"
+        Description: "Select \"true\" to create and assign callhome policy (default), else \"false\""
+        Default: true
         AllowedValues:
-          - "Yes"
-          - "No"
+          - true
+          - false
       ZscalerCcInstanceProfile:
         Description: "[Optional] An Existing IAM Role ARN to use for Cc"
         Type: String
-        Default: "arn:aws:iam::223544365242:instance-profile/ASGGWLB3-CcInstanceProfile-hseOMwjBXTSi"
+        # Default: "arn:aws:iam::223544365242:instance-profile/ASGGWLB3-CcInstanceProfile-hseOMwjBXTSi"
         AllowedPattern: '^$|^arn:aws:iam::[0-9]+:instance-profile/.*$'
         ConstraintDescription: >-
           Please specify a valid AWS IAM Role ARN
@@ -342,7 +342,7 @@ Parameters:
       ZscalerOsAmi:
         Type: AWS::EC2::Image::Id
         Description: "Amazon Ec2 Image Id to use for the deployment"
-        Default: "ami-04794575402b9e990"
+        # Default: "ami-04794575402b9e990"
 
 Conditions:
   ZscalerSecretsManagerNameNotEmpty: !Not
@@ -368,6 +368,12 @@ Conditions:
   CreateAsgWarmPool: !Equals
     - WarmPoolPlaceholder
     - WarmPoolPlaceholder
+  CreateCallhomePolicy: !Equals
+    - !Ref ZscalerCcCallhomeEnabled
+    - true
+  UseRootAsServicePrincipal: !Equals
+    - !Join ["", !Ref GwlbVpcEpServicePrincipals]
+    - ""
 
 Mappings:
   Product2Code:
@@ -439,6 +445,7 @@ Resources:
 
   CcCallHomePolicy:
     Type: AWS::IAM::ManagedPolicy
+    Condition: CreateCallhomePolicy
     Properties: 
       Description: Zscaler Cloud Connector Call Home Policy
       PolicyDocument:
@@ -468,7 +475,7 @@ Resources:
       ManagedPolicyArns:
         - !Ref CcGetSecretsPolicy
         - !Ref CcSsmControlPolicy
-        - !Ref CcCallHomePolicy
+        - !If [CreateCallhomePolicy, !Ref CcCallHomePolicy, Ref: AWS::NoValue]
   
   CcInstanceProfile:
     Condition: CreateIamAndInstanceProfile
@@ -489,18 +496,23 @@ Resources:
             - |+
 
             - - '[ZSCALER]'
-              - Fn::Join
-                - =
-                - - CC_URL
+              - !Join
+                - '='
+                - - 'CC_URL'
                   - !Ref ZscalerCloudConnectorProvUrl
-              - Fn::Join
-                - =
-                - - SECRET_NAME
+              - !Join
+                - '='
+                - - 'SECRET_NAME'
                   - !If [ZscalerSecretsManagerNameNotEmpty, !Ref ZscalerSecretManagerSecretName, 'ZS/CC/Credentials']
-              - Fn::Join
-                - =
-                - - HTTP_PROBE_PORT
+              - !Join
+                - '='
+                - - 'HTTP_PROBE_PORT'
                   - !If [ZscalerHttpProbePortNotEmpty, !Ref ZscalerHttpProbePort, '']
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub '${AWS::StackName}-CloudConnector'
         IamInstanceProfile: !If 
           - CreateIamAndInstanceProfile
           - Arn: !GetAtt [ CcInstanceProfile, Arn ]
@@ -532,6 +544,16 @@ Resources:
         - !Ref CcGwlbTargetGroup
       VPCZoneIdentifier: !Ref NetworkCcSubnetIds
 
+  CcAsgAutoScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties: 
+      AutoScalingGroupName: !Ref CcAutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration: 
+        PredefinedMetricSpecification: 
+          PredefinedMetricType: !Ref AsgTargetTrackingMetric
+        TargetValue: !Ref AsgTargetCpuUtilValue
+
   # CcAsgWarmPool:
   #   Condition: CreateAsgWarmPool
   #   Type: AWS::AutoScaling::WarmPool
@@ -549,6 +571,9 @@ Resources:
       HealthCheckPath: /?cchealth
       HealthCheckPort: !Ref ZscalerHttpProbePort
       HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: !Ref GwlbHealthCheckInterval
+      HealthyThresholdCount: !Ref GwlbHealthyThreshold
+      UnhealthyThresholdCount: !Ref GwlbUnhealthyThreshold
       Name: !Join
         - "-"
         - - CcGwlbTargetGroup
@@ -568,10 +593,23 @@ Resources:
   CcVpcEpService:
     Type: 'AWS::EC2::VPCEndpointService'
     Properties:
-      AcceptanceRequired: false
+      AcceptanceRequired: !Ref GwlbAcceptanceRequiredVpcEps
       GatewayLoadBalancerArns:
         - !Ref CcGwlb
   
+  CcVpcEpServicePermissions:
+    Type: AWS::EC2::VPCEndpointServicePermissions
+    Properties:
+      AllowedPrincipals: !If 
+        - UseRootAsServicePrincipal
+        - - !Join
+            - ':'
+            - - 'arn:aws:iam:'
+              - !Ref AWS::AccountId
+              - 'root'
+        - !Ref GwlbVpcEpServicePrincipals
+      ServiceId: !Ref CcVpcEpService
+
   CcVpcEp:
     Type: 'AWS::EC2::VPCEndpoint'
     Properties:
