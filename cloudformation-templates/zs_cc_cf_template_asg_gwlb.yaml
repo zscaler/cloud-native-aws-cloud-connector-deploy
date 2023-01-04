@@ -132,7 +132,7 @@ Metadata:
         - W2001
         - E3003
         - E2523
-        # - W8003
+        - W8003
 
 Transform:
   - Name: ZSCC-Macro
