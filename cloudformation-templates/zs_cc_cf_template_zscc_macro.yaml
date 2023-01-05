@@ -53,8 +53,8 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                  - secretsmanager:ListSecrets
-                  - secretsmanager:GetSecretValue
+                  - secretsmanager:ListSecrets  # pragma: allowlist secret
+                  - secretsmanager:GetSecretValue   # pragma: allowlist secret
                 Resource: "*"
               - Effect: Allow
                 Action:
