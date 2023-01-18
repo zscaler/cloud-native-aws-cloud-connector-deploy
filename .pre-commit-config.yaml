@@ -13,3 +13,4 @@ repos:
     rev:  v1.4.0
     hooks:
     -   id: detect-secrets
+        args: ['--exclude-lines', 'secretsmanager:'] #don't flag the secretsmanager permissions as sensitive
