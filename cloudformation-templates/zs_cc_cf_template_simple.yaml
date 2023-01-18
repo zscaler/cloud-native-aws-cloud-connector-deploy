@@ -301,7 +301,7 @@ Resources:
               Statement:
                 - Effect: Allow
                   Action:
-                    - 'secretsmanager:GetSecretValue' # pragma: allowlist secret
+                    - 'secretsmanager:GetSecretValue'
       ManagedPolicyArns:
         # - 'arn:aws:iam::aws:policy/SecretsManagerReadWrite'
         # SSM policy Commented out for non-poc deployments
