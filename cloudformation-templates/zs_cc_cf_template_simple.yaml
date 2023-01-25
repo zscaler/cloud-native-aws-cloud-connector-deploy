@@ -231,7 +231,7 @@ Resources:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      Description: Fn::Join
+      Description: !Join
         - " "
         - - Interface for service traffic for CC
           - !Ref CCInstanceType
@@ -249,7 +249,7 @@ Resources:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      Description: Fn::Join
+      Description: !Join
         - " "
         - - Interface for service traffic for CC
           - !Ref CCInstanceType
@@ -267,7 +267,7 @@ Resources:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      Description: Fn::Join
+      Description: !Join
         - " "
         - - Interface for service traffic for CC
           - !Ref CCInstanceType
@@ -280,10 +280,52 @@ Resources:
           Value: !Sub '${AWS::StackName}-Service4'
         - Key: Name
           Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF4'
-  SecretManagerIAMRole:
+
+  CcGetSecretsPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Description: Zscaler Cloud Connector Get Secrets Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'secretsmanager:GetSecretValue'
+
+  CcSsmControlPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Description: Zscaler Cloud Connector Ssm Control Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'ssm:UpdateInstanceInformation'
+              - 'ssmmessages:CreateControlChannel'
+              - 'ssmmessages:CreateDataChannel'
+              - 'ssmmessages:OpenControlChannel'
+              - 'ssmmessages:OpenDataChannel'
+            Resource:
+              - '*'
+
+  CcCallHomePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Description: Zscaler Cloud Connector Call Home Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'sts:AssumeRole'
+            Resource:
+              - 'arn:aws:iam::223544365242:role/callhome-delegation-role'
+
+  CcIamRole:
     Type: 'AWS::IAM::Role'
     Properties:
-      Description: ZS Cloud Connector VM IAM Role for Secrets Manager
+      Description: Zscaler Cloud Connector Instance IAM Role
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -294,23 +336,17 @@ Resources:
             Action:
               - 'sts:AssumeRole'
       Path: /
-      Policies:
-          - PolicyName: CustomLambdaEC2DescribePolicy
-            PolicyDocument:
-              Version: 2012-10-17
-              Statement:
-                - Effect: Allow
-                  Action:
-                    - 'secretsmanager:GetSecretValue'
       ManagedPolicyArns:
-        # - 'arn:aws:iam::aws:policy/SecretsManagerReadWrite'
-        # SSM policy Commented out for non-poc deployments
-        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+        - !Ref CcGetSecretsPolicy
+        - !Ref CcSsmControlPolicy
+        - !Ref CcCallHomePolicy
+
+
   CCHostProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:
       Roles:
-        - !Ref SecretManagerIAMRole
+        - !Ref CcIamRole
   Ec2Instance:
     Type: 'AWS::EC2::Instance'
     Properties:
@@ -327,22 +363,13 @@ Resources:
         - Key: Name
           Value: !Sub '${AWS::StackName}-CloudConnector'
       UserData: !Base64
-        Fn::Join:
+        'Fn::Join':
           - |+
 
           - - '[ZSCALER]'
-            - Fn::Join
-              - =
-              - - CC_URL
-                - !Ref CloudConnectorProvUrl
-            - Fn::Join
-              - =
-              - - SECRET_NAME
-                - !If [SecretsManagerNameNotEmpty, !Ref SecretManagerSecretName, 'ZS/CC/Credentials']
-            - Fn::Join
-              - =
-              - - HTTP_PROBE_PORT
-                - !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '']
+            - !Join ['=', [ 'CC_URL', !Ref CloudConnectorProvUrl]]
+            - !Join ['=', ['SECRET_NAME', !If [SecretsManagerNameNotEmpty, !Ref SecretManagerSecretName, 'ZS/CC/Credentials']]]
+            - !Join ['=', ['HTTP_PROBE_PORT', !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '']]]
   SrvcNetworkInterfaceAttachment:
     Type: 'AWS::EC2::NetworkInterfaceAttachment'
     Properties:
@@ -399,4 +426,4 @@ Outputs:
     Description: AMI ID In use in the Zscaler Cloud Connector VM
   CloudConnectorTemplateVersion:
     Description: Cloud Connector Template Version
-    Value: 2022.5.20
+    Value: 2023.01.25
