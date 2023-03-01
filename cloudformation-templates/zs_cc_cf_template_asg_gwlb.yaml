@@ -21,6 +21,7 @@ Metadata:
           - AsgWarmPoolReuseOnScaleIn
           - AsgTargetTrackingMetric
           - AsgTargetCpuUtilValue
+          - AsgDefaultInstanceWarmup
           - AsgWarmPoolEnabled
           - AsgWarmPoolState
           - AsgWarmPoolMaxGroupPreparedCapacity
@@ -34,6 +35,8 @@ Metadata:
           - GwlbHealthCheckInterval
           - GwlbHealthyThreshold
           - GwlbUnhealthyThreshold
+          - GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy
+          - GwlbFlowStickiness
           - GwlbCrossZoneLbEnabled
       - Label:
           default: Zscaler Configuration
@@ -72,6 +75,8 @@ Metadata:
         default: Auto-scaling Group Target-tracking Metric
       AsgTargetCpuUtilValue:
         default: Auto-scaling Group Target Cpu Utilization Value
+      AsgDefaultInstanceWarmup:
+        default: Auto-scaling Group Default Instance Warmup Time
       AsgWarmPoolEnabled:
         default: Auto-scaling Group Warm Pool Enabled
       AsgWarmPoolState:
@@ -92,6 +97,10 @@ Metadata:
         default: GWLB probe Healthy Threshold
       GwlbUnhealthyThreshold:
         default: GWLB probe Unhealthy Threshold
+      GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy:
+        default: GWLB target failover rebalance strategy
+      GwlbFlowStickiness:
+        default: GWLB Flow Stickiness strategy
       GwlbVPCEpServicePrincipals:
         default: Vpc Ep Service Principals
       GwlbVpcEpSubnetIds:
@@ -186,7 +195,13 @@ Parameters:
         Description: >-
           Target value number for autoscaling policy CPU utilization target tracking. 
           ie: trigger a scale in/out to keep average CPU Utliization percentage across all instances at/under this number
-        Default: 20
+        Default: 40
+      AsgDefaultInstanceWarmup:
+        Type: Number
+        Description: >-
+          The amount of time, in seconds, until a new instance is considered to have finished initializing and resource consumption to become stable after it enters the InService state.
+        Default: 900
+        MinValue: 900
       # AsgWarmPoolEnabled:
       #   Type: String
       #   Description: "Select \"true\" to enable Auto-scaling Group warm pool (default), else \"false\""
@@ -257,7 +272,7 @@ Parameters:
         ConstraintDescription: >-
           Healthy Threshold: Minimum 2 and maximum 10
         Description: "The number of successful health checks required before an unhealthy target becomes healthy"
-        Default: 3
+        Default: 2
       GwlbUnhealthyThreshold:
         Type: Number
         MinValue: 2
@@ -266,6 +281,22 @@ Parameters:
           UnHealthy Threshold: Minimum 2 and maximum 10
         Description: "The number of unsuccessful health checks required before a healthy target becomes unhealthy"
         Default: 3
+      GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy:
+        Type: String
+        Description: "Select \"rebalance\" to enable rebalance failover on target deregistration or of target becomes unhealthy"
+        AllowedValues:
+          - no_rebalance
+          - rebalance
+        Default: no_rebalance
+      GwlbFlowStickiness:
+        Type: String
+        Description: >-
+          Select 2-tuple for source_ip_dest_ip, 3-tuple for source_ip_dest_ip_proto flow stickiness
+        Default: "5-tuple"
+        AllowedValues:
+          - "5-tuple"
+          - "2-tuple"
+          - "3-tuple"
       GwlbVpcEpServicePrincipals:
         Type: CommaDelimitedList
         Default: ""
@@ -374,6 +405,13 @@ Conditions:
   UseRootAsServicePrincipal: !Equals
     - !Join ["", !Ref GwlbVpcEpServicePrincipals]
     - ""
+  EnableFlowStickiness: !Not
+    - !Equals
+        - !Ref GwlbFlowStickiness
+        - "5-tuple"
+  Use3TupleFlowStickiness: !Equals
+    - !Ref GwlbFlowStickiness
+    - "3-tuple"
 
 Mappings:
   Product2Code:
@@ -534,7 +572,8 @@ Resources:
     Properties: 
       AutoScalingGroupName: !Sub '${AWS::StackName}-CloudConnectorAutoScalingGroup'
       HealthCheckGracePeriod: !Ref AsgHealthCheckGracePeriod
-      HealthCheckType: ELB
+      HealthCheckType: EC2
+      DefaultInstanceWarmup: !Ref AsgDefaultInstanceWarmup
       LaunchTemplate: 
         LaunchTemplateId: !Ref CcLaunchTemplate
         Version: !GetAtt CcLaunchTemplate.LatestVersionNumber
@@ -581,6 +620,23 @@ Resources:
       Port: 6081
       Protocol: GENEVE
       TargetType: instance
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 0
+        - Key: target_failover.on_deregistration
+          Value: !Ref GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy
+        - Key: target_failover.on_unhealthy
+          Value: !Ref GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy
+        - Key: stickiness.enabled
+          Value: !If
+            - EnableFlowStickiness
+            - true
+            - false
+        - Key: stickiness.type
+          Value: !If
+            - Use3TupleFlowStickiness
+            - "source_ip_dest_ip_proto"
+            - "source_ip_dest_ip"
   
   CcGwlbListener:
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
