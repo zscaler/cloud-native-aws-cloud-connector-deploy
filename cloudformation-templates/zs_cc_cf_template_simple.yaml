@@ -426,4 +426,4 @@ Outputs:
     Description: AMI ID In use in the Zscaler Cloud Connector VM
   CloudConnectorTemplateVersion:
     Description: Cloud Connector Template Version
-    Value: 2023.01.25
+    Value: 0.1.1

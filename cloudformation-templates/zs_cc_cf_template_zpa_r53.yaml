@@ -271,4 +271,4 @@ Outputs:
       - ResolverEndpointId
   CloudConnectorZPATemplateVersion:
     Description: Cloud Connector ZPA Template Version
-    Value: 2022.5.20
+    Value: 0.1.1
