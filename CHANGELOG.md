@@ -1,3 +1,23 @@
+## [0.1.2] - 2023-03-16
+
+------------
+- ci: ci: Add detect-secrets to pre-commit
+- fix: userdata formatting for simple template
+- fix: pr comments for secrets lint
+- fix: CcIamRole to limit SSM access, callhome
+- fix: Limit SSM-IAM-Access
+
+
+
+## [0.1.1] - 2022-12-13
+
+------------
+- ci: fix type of changes for commit message
+- ci: git action for cfn-lint
+- docs: more comprehensive readme doc
+
+
+
 ## [0.1.0] - 2022-08-27
 
 ------------
