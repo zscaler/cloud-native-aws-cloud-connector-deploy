@@ -528,6 +528,9 @@ Resources:
       LaunchTemplateName: !Sub '${AWS::StackName}-CloudConnectorLaunchTemplate'
       LaunchTemplateData: 
         InstanceType: !Ref ZscalerAwsEc2InstanceType
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required
         KeyName: !Ref ZscalerKeyPairName
         UserData: !Base64
           Fn::Join:
