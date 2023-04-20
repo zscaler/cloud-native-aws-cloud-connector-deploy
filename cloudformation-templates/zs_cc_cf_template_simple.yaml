@@ -347,14 +347,6 @@ Resources:
     Properties:
       Roles:
         - !Ref CcIamRole
-  CCImdsv2LaunchTemplate:
-    Type: 'AWS::EC2::LaunchTemplate'
-    Properties:
-      LaunchTemplateName: !Sub '${AWS::StackName}-CloudConnectorIMDSv2LaunchTemplate'
-      LaunchTemplateData:
-        MetadataOptions:
-          HttpEndpoint: enabled
-          HttpTokens: required
   Ec2Instance:
     Type: 'AWS::EC2::Instance'
     Properties:
@@ -365,9 +357,6 @@ Resources:
         - !Ref MgmtSecurityGroup
       IamInstanceProfile: !Ref CCHostProfile
       InstanceType: !Ref InstanceType
-      LaunchTemplate:
-        LaunchTemplateId: !Ref CCImdsv2LaunchTemplate
-        Version: !GetAtt CCImdsv2LaunchTemplate.LatestVersionNumber
       Tags:
         - Key: Role
           Value: !Sub '${AWS::StackName}-ZSCCInstance'
