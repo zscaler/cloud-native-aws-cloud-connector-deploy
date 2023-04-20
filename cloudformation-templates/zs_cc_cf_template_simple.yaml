@@ -159,13 +159,11 @@ Rules:
     Assertions:
       - Assert:
           'Fn::Contains':
-            - - m5.2xlarge
-              - c5.2xlarge
-              - m5.4xlarge
+            - - m5.4xlarge
               - c5.4xlarge
             - !Ref InstanceType
         AssertDescription: >-
-          For medium CCInstanceType, the Instance type must be one of m5.2xlarge, c5.2xlarge, m5.4xlarge, c5.4xlarge
+          For medium CCInstanceType, the Instance type must be one of m5.4xlarge, c5.4xlarge
   largeCCInstanceType:
     RuleCondition: !Equals
       - !Ref CCInstanceType
@@ -216,17 +214,34 @@ Resources:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      SecondaryPrivateIpAddressCount: 1
-      Description: Interface for service traffic
+      Description: Nexthop interface for traffic forwarding
       GroupSet:
         - !Ref ServiceSecurityGroup
       SourceDestCheck: 'false'
       Tags:
         - Key: Network
-          Value: !Sub '${AWS::StackName}-Service'
+          Value: !Sub '${AWS::StackName}-ForwardingNexthop'
         - Key: Name
-          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF'
+          Value: !Sub '${AWS::StackName}-CloudConnectorFwdNHIF'
   ServiceXface2:
+    Condition: CreateCCMediumServiceXfaces
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      SubnetId: !Ref CCSubnetID
+      Description: !Join
+        - " "
+        - - Interface for service traffic for CC
+          - !Ref CCInstanceType
+          - Instance Type
+      GroupSet:
+        - !Ref ServiceSecurityGroup
+      SourceDestCheck: 'false'
+      Tags:
+        - Key: Network
+          Value: !Sub '${AWS::StackName}-Service1'
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF1'
+  ServiceXface3:
     Condition: CreateCCMediumServiceXfaces
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
@@ -244,42 +259,43 @@ Resources:
           Value: !Sub '${AWS::StackName}-Service2'
         - Key: Name
           Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF2'
-  ServiceXface3:
+  ServiceXface4:
     Condition: CreateCCMediumServiceXfaces
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      Description: !Join
-        - " "
-        - - Interface for service traffic for CC
-          - !Ref CCInstanceType
-          - Instance Type
+      Description: !If
+        - CreateCCMediumServiceXfaces
+        - 'Interface for lb vip'
+        - !Join [' ', ['Interface for service traffic for CC', !Ref CCInstanceType, 'Instance Type']]
       GroupSet:
         - !Ref ServiceSecurityGroup
       SourceDestCheck: 'false'
       Tags:
         - Key: Network
-          Value: !Sub '${AWS::StackName}-Servic3'
+          Value: !If
+            - CreateCCMediumServiceXfaces
+            - !Sub '${AWS::StackName}-LbVip'
+            - !Sub '${AWS::StackName}-Service3'
         - Key: Name
-          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF3'
-  ServiceXface4:
+          Value: !If
+            - CreateCCMediumServiceXfaces
+            - !Sub '${AWS::StackName}-CloudConnectorLbVip'
+            - !Sub '${AWS::StackName}-CloudConnectorSrvcIF3'
+  ServiceXface5:
     Condition: CreateCCLargeServiceXfaces
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      Description: !Join
-        - " "
-        - - Interface for service traffic for CC
-          - !Ref CCInstanceType
-          - Instance Type
+      Description: 'Interface for lb vip'
       GroupSet:
         - !Ref ServiceSecurityGroup
       SourceDestCheck: 'false'
       Tags:
         - Key: Network
-          Value: !Sub '${AWS::StackName}-Service4'
+          Value: !Sub '${AWS::StackName}-LbVip'
         - Key: Name
-          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF4'
+          Value: !Sub '${AWS::StackName}-CloudConnectorLbVip'
 
   CcGetSecretsPolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -368,7 +384,7 @@ Resources:
 
           - - '[ZSCALER]'
             - !Join ['=', [ 'CC_URL', !Ref CloudConnectorProvUrl]]
-            - !Join ['=', ['SECRET_NAME', !If [SecretsManagerNameNotEmpty, !Ref SecretManagerSecretName, 'ZS/CC/Credentials']]]
+            - !Join ['=', ['SECRET_NAME', !If [SecretsManagerNameNotEmpty, !Ref SecretManagerSecretName, 'ZS/CC/credentials']]]
             - !Join ['=', ['HTTP_PROBE_PORT', !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '']]]
   SrvcNetworkInterfaceAttachment:
     Type: 'AWS::EC2::NetworkInterfaceAttachment'
@@ -409,6 +425,16 @@ Resources:
         Ref: ServiceXface4
       DeviceIndex: 4
       DeleteOnTermination: false
+  SrvcNetworkInterface5Attachment:
+    Condition: CreateCCLargeServiceXfaces
+    Type: 'AWS::EC2::NetworkInterfaceAttachment'
+    Properties:
+      InstanceId:
+        Ref: Ec2Instance
+      NetworkInterfaceId:
+        Ref: ServiceXface5
+      DeviceIndex: 5
+      DeleteOnTermination: false
 Outputs:
   MgmtPrivateIP:
     Description: Zscaler Cloud Connector Instance Mgmt Private IP
@@ -418,7 +444,7 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-MgmtPrivateIP'
   ServiceEni:
-    Description: Zscaler Cloud Connector Instance Service Eni
+    Description: Zscaler Cloud Connector Instance Service Eni for traffic forwarding
     Value: !Ref ServiceXface
     Export:
       Name: !Sub '${AWS::StackName}-ServiceEni'

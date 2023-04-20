@@ -230,7 +230,7 @@ Resources:
                 filters = [{"Name": "product-code", "Values":[ImageCode]}]
                 response = sorted(client.describe_images(Owners=["aws-marketplace"], Filters=filters).get("Images"), key=lambda x:  x.get("CreationDate"))
                 
-                SecretManagerSecretName = event["templateParameterValues"].get("SecretManagerSecretName", "ZS/CC/Credentials")
+                SecretManagerSecretName = event["templateParameterValues"].get("SecretManagerSecretName", "ZS/CC/credentials")
                 secretsmanager_client = boto3.client('secretsmanager')
                 secret = secretsmanager_client.get_secret_value(SecretId=SecretManagerSecretName)
                 
