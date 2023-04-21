@@ -265,37 +265,37 @@ Resources:
     Properties:
       SubnetId: !Ref CCSubnetID
       Description: !If
-        - CreateCCMediumServiceXfaces
-        - 'Interface for lb vip'
+        - CreateCCLargeServiceXfaces
         - !Join [' ', ['Interface for service traffic for CC', !Ref CCInstanceType, 'Instance Type']]
+        - 'Interface for internal lb vip'
       GroupSet:
         - !Ref ServiceSecurityGroup
       SourceDestCheck: 'false'
       Tags:
         - Key: Network
           Value: !If
-            - CreateCCMediumServiceXfaces
-            - !Sub '${AWS::StackName}-LbVip'
+            - CreateCCLargeServiceXfaces
             - !Sub '${AWS::StackName}-Service3'
+            - !Sub '${AWS::StackName}-InternalLbVip'
         - Key: Name
           Value: !If
-            - CreateCCMediumServiceXfaces
-            - !Sub '${AWS::StackName}-CloudConnectorLbVip'
+            - CreateCCLargeServiceXfaces
             - !Sub '${AWS::StackName}-CloudConnectorSrvcIF3'
+            - !Sub '${AWS::StackName}-CloudConnectorInternalLbVip'
   ServiceXface5:
     Condition: CreateCCLargeServiceXfaces
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      Description: 'Interface for lb vip'
+      Description: 'Interface for internal LB vip'
       GroupSet:
         - !Ref ServiceSecurityGroup
       SourceDestCheck: 'false'
       Tags:
         - Key: Network
-          Value: !Sub '${AWS::StackName}-LbVip'
+          Value: !Sub '${AWS::StackName}-InternalLbVip'
         - Key: Name
-          Value: !Sub '${AWS::StackName}-CloudConnectorLbVip'
+          Value: !Sub '${AWS::StackName}-CloudConnectorInternalLbVip'
 
   CcGetSecretsPolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -416,7 +416,7 @@ Resources:
       DeviceIndex: 3
       DeleteOnTermination: false
   SrvcNetworkInterface4Attachment:
-    Condition: CreateCCLargeServiceXfaces
+    Condition: CreateCCMediumServiceXfaces
     Type: 'AWS::EC2::NetworkInterfaceAttachment'
     Properties:
       InstanceId:
@@ -444,7 +444,7 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-MgmtPrivateIP'
   ServiceEni:
-    Description: Zscaler Cloud Connector Instance Service Eni for traffic forwarding
+    Description: Zscaler Cloud Connector Instance Service ENI for traffic forwarding
     Value: !Ref ServiceXface
     Export:
       Name: !Sub '${AWS::StackName}-ServiceEni'
