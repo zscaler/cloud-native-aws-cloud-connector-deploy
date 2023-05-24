@@ -232,7 +232,7 @@ Resources:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      Description: Fn::Join
+      Description: !Join
         - " "
         - - Interface for service traffic for CC
           - !Ref CCInstanceType
@@ -250,7 +250,7 @@ Resources:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      Description: Fn::Join
+      Description: !Join
         - " "
         - - Interface for service traffic for CC
           - !Ref CCInstanceType
@@ -268,7 +268,7 @@ Resources:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      Description: Fn::Join
+      Description: !Join
         - " "
         - - Interface for service traffic for CC
           - !Ref CCInstanceType
@@ -368,18 +368,9 @@ Resources:
           - |+
 
           - - '[ZSCALER]'
-            - !Join
-              - '='
-              - - 'CC_URL'
-                - !Ref CloudConnectorProvUrl
-            - !Join
-              - '='
-              - - 'SECRET_NAME'
-                - !If [SecretsManagerNameNotEmpty, !Ref ZscalerSecretManagerSecretName, 'ZS/CC/Credentials']
-            - !Join
-              - '='
-              - - 'HTTP_PROBE_PORT'
-                - !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '']
+            - !Join ['=', [ 'CC_URL', !Ref CloudConnectorProvUrl]]
+            - !Join ['=', ['SECRET_NAME', !If [SecretsManagerNameNotEmpty, !Ref ZscalerSecretManagerSecretName, 'ZS/CC/Credentials']]]
+            - !Join ['=', ['HTTP_PROBE_PORT', !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '']]]
   SrvcNetworkInterfaceAttachment:
     Type: 'AWS::EC2::NetworkInterfaceAttachment'
     Properties:
@@ -436,4 +427,4 @@ Outputs:
     Description: AMI ID In use in the Zscaler Cloud Connector VM
   CloudConnectorTemplateVersion:
     Description: Cloud Connector Template Version
-    Value: 2022.12.01
+    Value: 0.1.1

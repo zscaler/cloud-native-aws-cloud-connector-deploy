@@ -764,7 +764,6 @@ Resources:
             "zsccasg": zsccasg
           }
 
-
   ZSCCMacroFunctionPermissions:
     Type: AWS::Lambda::Permission
     Properties:
@@ -781,4 +780,4 @@ Resources:
 Outputs:
   CloudConnectorMacroTemplateVersion:
     Description: Cloud Connector Macro Template Version
-    Value: 2022.12.01
+    Value: 0.1.1
