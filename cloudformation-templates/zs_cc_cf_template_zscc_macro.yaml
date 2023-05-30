@@ -691,7 +691,16 @@ Resources:
                 CcVpcEpTemplate = resources.pop("CcVpcEp")
                 CcVpcEpOutputTemplate = outputs.pop("ZscalerCcVpcEp")
                 CcVpcEpTemplate.get("Properties")["VpcId"] = parameters.get("NetworkVpcId")
+                # One asg per az
+                CcAutoScalingGroupTemplate = resources.pop("CcAutoScalingGroup")
                 for az, subnets in subnetsByAz.items():
+                  asg_name = f"CcAutoScalingGroup_{az}"
+                  asg_resource = copy.deepcopy(CcAutoScalingGroupTemplate)
+                  asg_resource["Properties"]["AutoScalingGroupName"]["Fn::Sub"] = asg_resource["Properties"]["AutoScalingGroupName"]["Fn::Sub"] + f"-{az}"
+                  for lch in asg_resource["Properties"]["LifecycleHookSpecificationList"]:
+                    lch["LifecycleHookName"]["Fn::Sub"] = lch["LifecycleHookName"]["Fn::Sub"] + f"_{az}"
+                  resources[asg_name] = asg_resource
+                  
                   ep_name = f"ZSCCVPCEP{az}"
                   ep_resource = copy.deepcopy(CcVpcEpTemplate)
                   ep_resource.get("Properties")["SubnetIds"] = subnets[:1]
