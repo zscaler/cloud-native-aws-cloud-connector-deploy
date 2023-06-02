@@ -195,7 +195,7 @@ Parameters:
         Description: >-
           Target value number for autoscaling policy CPU utilization target tracking. 
           ie: trigger a scale in/out to keep average CPU Utliization percentage across all instances at/under this number
-        Default: 40
+        Default: 80
       AsgDefaultInstanceWarmup:
         Type: Number
         Description: >-
@@ -373,7 +373,7 @@ Parameters:
       ZscalerOsAmi:
         Type: AWS::EC2::Image::Id
         Description: "Amazon Ec2 Image Id to use for the deployment"
-        # Default: "ami-04794575402b9e990"
+        Default: "ami-04162ed2bafba329a"
 
 Conditions:
   ZscalerSecretsManagerNameNotEmpty: !Not
@@ -643,9 +643,18 @@ Resources:
       AutoScalingGroupName: !Ref CcAutoScalingGroup
       PolicyType: TargetTrackingScaling
       TargetTrackingConfiguration: 
-        PredefinedMetricSpecification: 
-          PredefinedMetricType: !Ref AsgTargetTrackingMetric
+        # PredefinedMetricSpecification: 
+        #   PredefinedMetricType: !Ref AsgTargetTrackingMetric
+        CustomizedMetricSpecification:
+          MetricName: 'smedge_cpu_utilization'
+          Namespace: 'Zscaler/CloudConnectors'
+          Dimensions:
+            - Name: AutoScalingGroupName
+              Value: !Ref CcAutoScalingGroup
+          Statistic: Average
+          Unit: Percent
         TargetValue: !Ref AsgTargetCpuUtilValue
+
 
   CcAsgWarmPool:
     Condition: CreateAsgWarmPool

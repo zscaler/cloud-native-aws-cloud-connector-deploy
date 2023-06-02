@@ -236,7 +236,7 @@ Resources:
 
               # Retrieve secrets manager ARN
               try:
-                SecretManagerSecretName = event["templateParameterValues"].get("ZscalerSecretManagerSecretName", "ZS/CC/Credentials")
+                SecretManagerSecretName = event["templateParameterValues"].get("ZscalerSecretManagerSecretName", "ZS/CC/credentials")
                 secretsmanager_client = boto3.client('secretsmanager')
                 secret = secretsmanager_client.get_secret_value(SecretId=SecretManagerSecretName)
                 
@@ -673,8 +673,28 @@ Resources:
             try:
               CcAutoScalingGroup = resources.get("CcAutoScalingGroup")
               CcAutoScalingGroup.get("Properties")["VPCZoneIdentifier"] = uniqueCcSubnetIds
+              # One asg per az
+              CcAutoScalingGroupTemplate = resources.pop("CcAutoScalingGroup")
+              CcAsgAutoScalingPolicyTemplate = resources.pop("CcAsgAutoScalingPolicy")
+              CcAsgWarmPoolTemplate = resources.pop("CcAsgWarmPool")
+              for az, subnets in subnetsByAz.items():
+                asg_name = f"CcAutoScalingGroupFor{az}"
+                asg_policy_name = f"CcAutoScalingGroupScalingPolicyFor{az}"
+                asg_warmpool_name = f"CcAutoScalingGroupWarmPoolFor{az}"
+                asg_resource = copy.deepcopy(CcAutoScalingGroupTemplate)
+                asg_policy_resource = copy.deepcopy(CcAsgAutoScalingPolicyTemplate)
+                asg_warmpool_resource = copy.deepcopy(CcAsgWarmPoolTemplate)
+                asg_resource["Properties"]["AutoScalingGroupName"]["Fn::Sub"] = asg_resource["Properties"]["AutoScalingGroupName"]["Fn::Sub"] + f"For{az}"
+                asg_policy_resource["Properties"]["AutoScalingGroupName"]["Ref"] = asg_name
+                asg_policy_resource["Properties"]["TargetTrackingConfiguration"]["CustomizedMetricSpecification"]["Dimensions"][0]["Value"]["Ref"] = asg_name
+                asg_warmpool_resource["Properties"]["AutoScalingGroupName"]["Ref"] = asg_name
+                for lch in asg_resource["Properties"]["LifecycleHookSpecificationList"]:
+                  lch["LifecycleHookName"]["Fn::Sub"] = lch["LifecycleHookName"]["Fn::Sub"] + f"For{az}"
+                resources[asg_name] = asg_resource
+                resources[asg_policy_name] = asg_policy_resource
+                resources[asg_warmpool_name] = asg_warmpool_resource
             except Exception as e:
-              err = f"Modifying AutoScaling Group Resourced failed: {e}"
+              err = f"Modifying AutoScaling Group Resource failed: {e}"
               logger.error(err)
               responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
               responseData["message"] += err
@@ -691,16 +711,7 @@ Resources:
                 CcVpcEpTemplate = resources.pop("CcVpcEp")
                 CcVpcEpOutputTemplate = outputs.pop("ZscalerCcVpcEp")
                 CcVpcEpTemplate.get("Properties")["VpcId"] = parameters.get("NetworkVpcId")
-                # One asg per az
-                CcAutoScalingGroupTemplate = resources.pop("CcAutoScalingGroup")
-                for az, subnets in subnetsByAz.items():
-                  asg_name = f"CcAutoScalingGroup_{az}"
-                  asg_resource = copy.deepcopy(CcAutoScalingGroupTemplate)
-                  asg_resource["Properties"]["AutoScalingGroupName"]["Fn::Sub"] = asg_resource["Properties"]["AutoScalingGroupName"]["Fn::Sub"] + f"-{az}"
-                  for lch in asg_resource["Properties"]["LifecycleHookSpecificationList"]:
-                    lch["LifecycleHookName"]["Fn::Sub"] = lch["LifecycleHookName"]["Fn::Sub"] + f"_{az}"
-                  resources[asg_name] = asg_resource
-                  
+                for az, subnets in subnetsByAz.items():                  
                   ep_name = f"ZSCCVPCEP{az}"
                   ep_resource = copy.deepcopy(CcVpcEpTemplate)
                   ep_resource.get("Properties")["SubnetIds"] = subnets[:1]
@@ -762,7 +773,7 @@ Resources:
               logger.info(json.dumps(event))
               operation = OPER_MAP.get(event.get("params").get("operation").lower())
               resp = operation(event, context)
-              logger.info(pprint.pformat(resp, indent=4))
+              #logger.info(pprint.pformat(resp, indent=4))
               return resp
 
           # MAP
