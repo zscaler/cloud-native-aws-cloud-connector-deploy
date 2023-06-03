@@ -659,10 +659,13 @@ Resources:
               # This only works if the secretmanager policy is the first policy
               # first fetch the policy document
               policy_doc = resources["CcGetSecretsPolicy"]["Properties"]["PolicyDocument"]
+              policy_doc_lambda = resources["CcGetSecretsPolicyForLambda"]["Properties"]["PolicyDocument"]
               
               # update the document
               policy_doc["Statement"][0]["Resource"] = responseData["SecretArn"]
               resources["CcGetSecretsPolicy"]["Properties"]["PolicyDocument"] = policy_doc
+              policy_doc_lambda["Statement"][0]["Resource"] = responseData["SecretArn"]
+              resources["CcGetSecretsPolicyForLambda"]["Properties"]["PolicyDocument"] = policy_doc_lambda
             except Exception as e:
               err = f"Adding SecretManger  to use failed: {e}"
               logger.error(err)
@@ -677,8 +680,12 @@ Resources:
               CcAutoScalingGroupTemplate = resources.pop("CcAutoScalingGroup")
               CcAsgAutoScalingPolicyTemplate = resources.pop("CcAsgAutoScalingPolicy")
               CcAsgWarmPoolTemplate = resources.pop("CcAsgWarmPool")
+              CcAsgLambdaFunction = resources.get("CcAsgLambdaFunction")
+              CcAsgEventBridgeInstanceTerminateLifecycleActionRule = resources.get("CcAsgEventBridgeInstanceTerminateLifecycleActionRule")
+              asg_names = list()
               for az, subnets in subnetsByAz.items():
                 asg_name = f"CcAutoScalingGroupFor{az}"
+                asg_names.append(f"${{{asg_name}}}")
                 asg_policy_name = f"CcAutoScalingGroupScalingPolicyFor{az}"
                 asg_warmpool_name = f"CcAutoScalingGroupWarmPoolFor{az}"
                 asg_resource = copy.deepcopy(CcAutoScalingGroupTemplate)
@@ -693,6 +700,11 @@ Resources:
                 resources[asg_name] = asg_resource
                 resources[asg_policy_name] = asg_policy_resource
                 resources[asg_warmpool_name] = asg_warmpool_resource
+              CcAsgLambdaFunction["Properties"]["Environment"]["Variables"]["ASG_NAMES"]["Fn::Sub"] = json.dumps(asg_names)
+              CcAsgEventBridgeInstanceTerminateLifecycleActionRuleFnSub = json.loads(CcAsgEventBridgeInstanceTerminateLifecycleActionRule["Properties"]["EventPattern"]["Fn::Sub"])
+              CcAsgEventBridgeInstanceTerminateLifecycleActionRuleFnSub["detail"]["AutoScalingGroupName"] = asg_names
+              CcAsgEventBridgeInstanceTerminateLifecycleActionRule["Properties"]["EventPattern"]["Fn::Sub"] = json.dumps(CcAsgEventBridgeInstanceTerminateLifecycleActionRuleFnSub)
+
             except Exception as e:
               err = f"Modifying AutoScaling Group Resource failed: {e}"
               logger.error(err)
@@ -783,6 +795,7 @@ Resources:
             "zscczpa": zscczpa,
             "zsccasg": zsccasg
           }
+
 
   ZSCCMacroFunctionPermissions:
     Type: AWS::Lambda::Permission

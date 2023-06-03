@@ -142,6 +142,7 @@ Metadata:
         - E3003
         - E2523
         - W8003
+        - W1020 #Fn::Sub isn't needed because there are no variables at Resources/
 
 Transform:
   - Name: ZSCC-Macro
@@ -242,6 +243,14 @@ Parameters:
         AllowedPattern: '^(.*|[0-9]+)$'
         ConstraintDescription: >-
           When specified, Auto-scaling Group Warm Pool Minimum Size should be a whole number
+      AsgS3BucketName:
+        Type: String
+        AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
+        Description: AWS S3 Bucket name in this region
+      AsgS3Key:
+        Type: String
+        AllowedPattern: ^[0-9a-zA-Z-/_\.\s]*.zip$
+        Description: AWS S3 Key for the lambda deployment package zip file
       
       GwlbAcceptanceRequiredVpcEps:
         Type: String
@@ -530,6 +539,7 @@ Resources:
               - 'autoscaling:DescribeAutoScalingInstances'
               - 'autoscaling:CompleteLifecycleAction'
               - 'autoscaling:RecordLifecycleActionHeartbeat'
+              - 'autoscaling:SetInstanceHealth'
               - 'ec2:DescribeInstanceStatus'
             Resource:
               - '*'
@@ -586,7 +596,7 @@ Resources:
               - !Join
                 - '='
                 - - 'SECRET_NAME'
-                  - !If [ZscalerSecretsManagerNameNotEmpty, !Ref ZscalerSecretManagerSecretName, 'ZS/CC/Credentials']
+                  - !If [ZscalerSecretsManagerNameNotEmpty, !Ref ZscalerSecretManagerSecretName, 'ZS/CC/credentials']
               - !Join
                 - '='
                 - - 'HTTP_PROBE_PORT'
@@ -666,6 +676,211 @@ Resources:
       MaxGroupPreparedCapacity: !Ref AsgWarmPoolMaxGroupPreparedCapacity
       MinSize: !Ref AsgWarmPoolMinSize
       PoolState: !Ref AsgWarmPoolState
+
+  # ASG Lambda Related resources
+
+  CcCloudwatchLogGroupForLambda:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '${AWS::StackName}-CcCloudwatchLogGroupForLambda'
+
+  CcGetSecretsPolicyForLambda:
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Description: Zscaler Cloud Connector Get Secrets Policy For Lambda
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'secretsmanager:GetSecretValue'
+
+  CcCloudwatchMetricsPolicyForLambda:
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Description: Zscaler Cloud Connector Cloudwatch Metrics Policy For Lambda
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'cloudwatch:GetMetricStatistics'
+              - 'cloudwatch:ListMetrics'
+              - 'cloudwatch:PutMetricData'
+              - 'ec2:DescribeTags'
+            Resource:
+              - '*'
+
+  CcCloudwatchLogsPolicyForLambda:
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Description: Zscaler Cloud Connector Cloudwatch Logs Policy For Lambda
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+            Resource:
+              - !GetAtt 
+                - CcCloudwatchLogGroupForLambda
+                - Arn
+          - Effect: Allow
+            Action:
+              - 'logs:CreateLogGroup'
+            Resource:
+              - !Join
+                - ':'
+                - - arn
+                  - aws
+                  - 'logs:'
+                  - !Sub '${AWS::Region}'
+                  - !Sub '${AWS::AccountId}'
+                  - '*'
+
+  CcAutoScalingLifecycleActionsPolicyForLambda:
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Description: Zscaler Cloud Connector Cloudwatch Metrics Policy For Lambda
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'autoscaling:DescribeLifecycleHookTypes'
+              - 'autoscaling:DescribeLifecycleHooks'
+              - 'autoscaling:DescribeAutoScalingInstances'
+              - 'autoscaling:CompleteLifecycleAction'
+              - 'autoscaling:RecordLifecycleActionHeartbeat'
+              - 'autoscaling:SetInstanceHealth'
+              - 'ec2:DescribeInstanceStatus'
+            Resource:
+              - '*'
+
+  CcAsgLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - !Ref CcGetSecretsPolicyForLambda
+        - !Ref CcCloudwatchMetricsPolicyForLambda
+        - !Ref CcAutoScalingLifecycleActionsPolicyForLambda
+        - !Ref CcCloudwatchLogsPolicyForLambda
+
+  CcAsgLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: zscaler_cc_lambda_service.lambda_handler
+      Description: Auto-scaling Group Lambda for Failure management
+      Timeout: 180
+      MemorySize: 256
+      Role: !GetAtt
+        - CcAsgLambdaRole
+        - Arn
+      Runtime: python3.9
+      Environment:
+        Variables:
+          ASG_NAMES: !Sub '{json_dump_asg_names}'
+          CC_URL: !Ref ZscalerCloudConnectorProvUrl
+          SECRET_NAME: !If [ZscalerSecretsManagerNameNotEmpty, !Ref ZscalerSecretManagerSecretName, 'ZS/CC/credentials']
+          HC_DATA_POINTS: '10'
+          HC_UNHEALTHY_THRESHOLD: '7'
+      Code:
+        S3Bucket: !Ref AsgS3BucketName
+        S3Key: !Ref AsgS3Key
+  ## Event-bridge Terminate rule and Lambda permission
+  CcAsgEventBridgeInstanceTerminateLifecycleActionRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: 'Event rule for EC2 Instance-terminate Lifecycle Action'
+      EventPattern: !Sub |
+        {
+        "source": ["aws.autoscaling"],
+        "detail-type": ["EC2 Instance-terminate Lifecycle Action"],
+        "detail": {
+          "AutoScalingGroupName": "{json_dump_asg_names}"
+          }
+        }      
+      State: "ENABLED"
+      Targets:
+        - Arn:
+            Fn::GetAtt:
+              - CcAsgLambdaFunction
+              - Arn
+          Id: !Ref CcAsgLambdaFunction
+  CcAsgEventBridgeInstanceTerminateLifecycleActionRuleToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: CcAsgLambdaFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn:
+        Fn::GetAtt:
+          - CcAsgEventBridgeInstanceTerminateLifecycleActionRule
+          - Arn
+  ## Event-bridge Terminate rule and Targets for EC2 Terminations
+  CcAsgEventBridgeEc2InstanceTerminateRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: 'Event rule for EC2 Instance-termination without Lifecycle Action'
+      EventPattern: |
+        {
+          "source": ["aws.ec2"],
+          "detail-type": ["EC2 Instance State-change Notification"],
+          "detail": {
+            "state": ["terminated"]
+          }
+        }
+      State: "ENABLED"
+      Targets:
+        - Arn:
+            Fn::GetAtt:
+              - CcAsgLambdaFunction
+              - Arn
+          Id: !Ref CcAsgLambdaFunction
+  CcAsgEventBridgeEc2InstanceTerminateRuleToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: CcAsgLambdaFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn:
+        Fn::GetAtt:
+          - CcAsgEventBridgeEc2InstanceTerminateRule
+          - Arn
+  ## Scheduled Rule and lambda permission
+  CcAsgCloudwatchSchedulerEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "EventBridge rule to trigger Lambda function every 10 minutes"
+      ScheduleExpression: "rate(10 minutes)"
+      State: "ENABLED"
+      Targets:
+        - Arn:
+            Fn::GetAtt:
+              - CcAsgLambdaFunction
+              - Arn
+          Id: !Ref CcAsgLambdaFunction
+  CcAsgPermissionForScheduledRuleToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: CcAsgLambdaFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn:
+        Fn::GetAtt:
+          - CcAsgCloudwatchSchedulerEventRule
+          - Arn
 
   CcGwlbTargetGroup:
     Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
