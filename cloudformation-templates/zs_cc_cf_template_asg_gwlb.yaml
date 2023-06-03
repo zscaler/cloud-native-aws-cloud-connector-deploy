@@ -755,6 +755,8 @@ Resources:
               - 'autoscaling:RecordLifecycleActionHeartbeat'
               - 'autoscaling:SetInstanceHealth'
               - 'ec2:DescribeInstanceStatus'
+              - 'ec2:DescribeInstances'
+              - 'ec2:DescribeTags'
             Resource:
               - '*'
 
