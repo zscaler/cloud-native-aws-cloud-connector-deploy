@@ -754,6 +754,8 @@ Resources:
               - 'autoscaling:CompleteLifecycleAction'
               - 'autoscaling:RecordLifecycleActionHeartbeat'
               - 'autoscaling:SetInstanceHealth'
+              - 'autoscaling:DescribeAutoScalingGroups'
+              - 'autoscaling:DescribeWarmPool'
               - 'ec2:DescribeInstanceStatus'
               - 'ec2:DescribeInstances'
               - 'ec2:DescribeTags'
