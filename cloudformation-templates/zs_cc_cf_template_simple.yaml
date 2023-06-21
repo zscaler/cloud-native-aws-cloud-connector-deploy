@@ -347,6 +347,14 @@ Resources:
     Properties:
       Roles:
         - !Ref CcIamRole
+  CCImdsv2LaunchTemplate:
+    Type: 'AWS::EC2::LaunchTemplate'
+    Properties:
+      LaunchTemplateName: !Sub '${AWS::StackName}-CloudConnectorIMDSv2LaunchTemplate'
+      LaunchTemplateData:
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required
   Ec2Instance:
     Type: 'AWS::EC2::Instance'
     Properties:
@@ -357,6 +365,9 @@ Resources:
         - !Ref MgmtSecurityGroup
       IamInstanceProfile: !Ref CCHostProfile
       InstanceType: !Ref InstanceType
+      LaunchTemplate:
+        LaunchTemplateId: !Ref CCImdsv2LaunchTemplate
+        Version: !GetAtt CCImdsv2LaunchTemplate.LatestVersionNumber
       Tags:
         - Key: Role
           Value: !Sub '${AWS::StackName}-ZSCCInstance'
@@ -426,4 +437,4 @@ Outputs:
     Description: AMI ID In use in the Zscaler Cloud Connector VM
   CloudConnectorTemplateVersion:
     Description: Cloud Connector Template Version
-    Value: 0.1.1
+    Value: 0.1.3

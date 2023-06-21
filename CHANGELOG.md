@@ -1,3 +1,10 @@
+## [0.1.3] - 2023-06-20
+
+------------
+- fix: enforce imdsv2 for cloudconnector instances
+
+
+
 ## [0.1.2] - 2023-03-16
 
 ------------
