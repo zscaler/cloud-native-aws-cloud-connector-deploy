@@ -230,7 +230,7 @@ Resources:
       SubnetId: !Ref CCSubnetID
       Description: !Join
         - " "
-        - - Interface for service traffic for CC
+        - - Interface for service 1 traffic for CC
           - !Ref CCInstanceType
           - Instance Type
       GroupSet:
@@ -248,7 +248,7 @@ Resources:
       SubnetId: !Ref CCSubnetID
       Description: !Join
         - " "
-        - - Interface for service traffic for CC
+        - - Interface for service 2 traffic for CC
           - !Ref CCInstanceType
           - Instance Type
       GroupSet:
@@ -266,7 +266,7 @@ Resources:
       SubnetId: !Ref CCSubnetID
       Description: !If
         - CreateCCLargeServiceXfaces
-        - !Join [' ', ['Interface for service traffic for CC', !Ref CCInstanceType, 'Instance Type']]
+        - !Join [' ', ['Interface for service 3 traffic for CC', !Ref CCInstanceType, 'Instance Type']]
         - 'Interface for internal lb vip'
       GroupSet:
         - !Ref ServiceSecurityGroup
