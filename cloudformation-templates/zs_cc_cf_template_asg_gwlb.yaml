@@ -16,16 +16,15 @@ Metadata:
         Parameters:
           - AsgMinSize
           - AsgMaxSize
-          - AsgHealthCheckGracePeriod
           - AsgLaunchTemplateVersion
           - AsgWarmPoolReuseOnScaleIn
           - AsgTargetTrackingMetric
           - AsgTargetCpuUtilValue
-          - AsgDefaultInstanceWarmup
           - AsgWarmPoolEnabled
           - AsgWarmPoolState
-          - AsgWarmPoolMaxGroupPreparedCapacity
           - AsgWarmPoolMinSize
+          - AsgWarmPoolMaxGroupPreparedCapacity
+          - AsgLogGroupRetentionInDays
       - Label:
           default: Gateway Loadbalancer Configuration
         Parameters:
@@ -61,8 +60,6 @@ Metadata:
       NetworkCcSubnetIds:
         default: Subnet IDs for the Zscaler Cloud Connector ASG
 
-      AsgHealthCheckGracePeriod:
-        default: Auto-scaling Group Health Check Grace Period
       AsgLaunchTemplateVersion:
         default: Auto-scaling Group Launch Template Version
       AsgMinSize:
@@ -75,16 +72,16 @@ Metadata:
         default: Auto-scaling Group Target-tracking Metric
       AsgTargetCpuUtilValue:
         default: Auto-scaling Group Target Cpu Utilization Value
-      AsgDefaultInstanceWarmup:
-        default: Auto-scaling Group Default Instance Warmup Time
       AsgWarmPoolEnabled:
         default: Auto-scaling Group Warm Pool Enabled
       AsgWarmPoolState:
         default: Auto-scaling Group Warm Pool State
-      AsgWarmPoolMaxGroupPreparedCapacity:
-        default: Auto-scaling Group Warm Pool Max Group Prepared Capacity
       AsgWarmPoolMinSize:
         default: Auto-scaling Group Warm Pool Minimum Size
+      AsgWarmPoolMaxGroupPreparedCapacity:
+        default: Auto-scaling Group Warm Pool Max Group Prepared Capacity
+      AsgLogGroupRetentionInDays:
+        default: Log Group Retention
 
 
       GwlbAcceptanceRequiredVpcEps:
@@ -143,7 +140,7 @@ Metadata:
         - E2523
         - W8003
         - W1020 #Fn::Sub isn't needed because there are no variables at Resources/
-
+        - W2030 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html#cfn-logs-loggroup-retentionindays
 Transform:
   - Name: ZSCC-Macro
     Parameters:
@@ -159,13 +156,6 @@ Parameters:
       NetworkCcSubnetIds:
         Description: "The subnet where the Zscaler Cloud Connector AMI is deployed."
         Type: List<AWS::EC2::Subnet::Id>
-
-      AsgHealthCheckGracePeriod:
-        Type: Number
-        MinValue: 0
-        Description: >-
-          The amount of time until EC2 Auto Scaling performs the first health check on new instances after they are put into service
-        Default: 0
       # AsgLaunchTemplateVersion:
       #   Type: String
       #   Description: >-
@@ -174,18 +164,27 @@ Parameters:
       #   Default: "$Latest"
       AsgMinSize:
         Type: Number
+        MinValue: 1
+        MaxValue: 10
+        ConstraintDescription: >-
+          Healthy Threshold: Minimum 1 and maximum 10
         Description: >-
           Minimum number of Cloud Connectors to maintain in Autoscaling group
         Default: 2
       AsgMaxSize:
         Type: Number
+        MinValue: 1
+        MaxValue: 10
+        ConstraintDescription: >-
+          Healthy Threshold: Minimum 1 and maximum 10
         Description: >-
           Maximum number of Cloud Connectors to maintain in Autoscaling group
         Default: 4
       AsgTargetTrackingMetric:
         Type: String
         Description: >-
-          The AWS ASG pre-defined target tracking metric type. Cloud Connector recommends ASGAverageCPUUtilization
+          The AWS ASG pre-defined target tracking metric type.
+          Cloud Connector recommends ASGAverageCPUUtilization
         AllowedValues:
           - "ASGAverageCPUUtilization"
           # - "ASGAverageNetworkIn"
@@ -197,12 +196,6 @@ Parameters:
           Target value number for autoscaling policy CPU utilization target tracking. 
           ie: trigger a scale in/out to keep average CPU Utliization percentage across all instances at/under this number
         Default: 80
-      AsgDefaultInstanceWarmup:
-        Type: Number
-        Description: >-
-          The amount of time, in seconds, until a new instance is considered to have finished initializing and resource consumption to become stable after it enters the InService state.
-        Default: 0
-        MinValue: 0
       AsgWarmPoolEnabled:
         Type: String
         Description: "Select \"true\" to enable Auto-scaling Group warm pool (default), else \"false\""
@@ -220,7 +213,8 @@ Parameters:
       AsgWarmPoolState:
         Type: String
         Description: >-
-          Sets the instance state to transition to after the lifecycle hooks finish. Valid values are: Stopped (default), Running or Hibernated. 
+          Sets the instance state to transition to after the lifecycle hooks finish. 
+          Valid values are: Stopped (default), Running or Hibernated. 
           Ignored when 'Auto-scaling Group Warm Pool Enabled' is No
         Default: "Stopped"
         AllowedValues:
@@ -228,21 +222,27 @@ Parameters:
           - "Running"
           # - "Hibernated"
       AsgWarmPoolMaxGroupPreparedCapacity:
-        Type: String
+        Type: Number
+        MinValue: -1
+        MaxValue: 10
+        ConstraintDescription: >-
+          Healthy Threshold: Minimum -1 and maximum 10
+        Default: -1
         Description: >-
           Specifies the total maximum number of instances that are allowed to be in the warm pool or in any state except Terminated for the Auto Scaling group. 
-          Ignored when 'Auto-scaling Group Warm Pool Enabled' is No
-        AllowedPattern: '^(.*|[0-9]+)$'
-        ConstraintDescription: >-
-          When specified, Auto-scaling Group Warm Pool Max Group Prepared Capacity should be a whole number          
+          Specify it only if you do not want the warm pool size to be determined by the difference between the group's maximum capacity and its desired capacity. 
+          Ignored when 'Auto-scaling Group Warm Pool Enabled' is No       
       AsgWarmPoolMinSize:
-        Type: String
-        Description: >-
-          Specifies the minimum number of instances to maintain in the warm pool. This helps you to ensure that there is always a certain number of warmed instances available to handle traffic spikes. 
-          Ignored when 'Auto-scaling Group Warm Pool Enabled' is No
-        AllowedPattern: '^(.*|[0-9]+)$'
+        Type: Number
+        MinValue: 0
+        MaxValue: 10
         ConstraintDescription: >-
-          When specified, Auto-scaling Group Warm Pool Minimum Size should be a whole number
+          Healthy Threshold: Minimum 0 and maximum 10
+        Default: 0
+        Description: >-
+          Specifies the minimum number of instances to maintain in the warm pool. 
+          This helps you to ensure that there is always a certain number of warmed instances available to handle traffic spikes. 
+          Ignored when 'Auto-scaling Group Warm Pool Enabled' is No
       AsgS3BucketName:
         Type: String
         AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
@@ -251,6 +251,13 @@ Parameters:
         Type: String
         AllowedPattern: ^[0-9a-zA-Z-/_\.\s]*.zip$
         Description: AWS S3 Key for the lambda deployment package zip file
+      AsgLogGroupRetentionInDays:
+        Type: Number
+        Description: >-
+          The number of days to retain the log events in the specified log group. 
+          Possible values are: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, and 3653.
+        Default: 3
+        AllowedValues: [ 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653]
       
       GwlbAcceptanceRequiredVpcEps:
         Type: String
@@ -296,7 +303,7 @@ Parameters:
         AllowedValues:
           - no_rebalance
           - rebalance
-        Default: no_rebalance
+        Default: rebalance
       GwlbFlowStickiness:
         Type: String
         Description: >-
@@ -320,12 +327,11 @@ Parameters:
       ZscalerAwsEc2InstanceType:
         Type: String
         Description: "The Amazon EC2 instance type for the ZS instances."
-        Default: "m5.large"
+        Default: "c5a.large"
         AllowedValues:
           - "t3.medium"
-          - "c5.large"
           - "c5a.large"
-          - "m5.large"
+          - "m5n.large"
       ZscalerCcCallhomeEnabled:
         Type: String
         Description: "Select \"true\" to create and assign callhome policy (default), else \"false\""
@@ -344,7 +350,7 @@ Parameters:
         AllowedValues:
           - "small"
         Default: "small"
-        Description: "The instance type for Zscaler Cloud Connector (small). More sizes to come in the future."
+        Description: "The instance type for Zscaler Cloud Connector (small)"
         Type: String    
       ZscalerCcMgmtIntfSecurityGroup:
         Description: "[Optional] An Existing Security Group Id to apply to Mgmt Interfaces"
@@ -382,7 +388,7 @@ Parameters:
       ZscalerOsAmi:
         Type: AWS::EC2::Image::Id
         Description: "Amazon Ec2 Image Id to use for the deployment"
-        Default: "ami-04162ed2bafba329a"
+        Default: "ami-060ce026bafb4e0ff"
 
 Conditions:
   ZscalerSecretsManagerNameNotEmpty: !Not
@@ -626,9 +632,9 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties: 
       AutoScalingGroupName: !Sub '${AWS::StackName}-CloudConnectorAutoScalingGroup'
-      HealthCheckGracePeriod: !Ref AsgHealthCheckGracePeriod
+      HealthCheckGracePeriod: 0
       HealthCheckType: EC2
-      DefaultInstanceWarmup: !Ref AsgDefaultInstanceWarmup
+      DefaultInstanceWarmup: 0
       LaunchTemplate: 
         LaunchTemplateId: !Ref CcLaunchTemplate
         Version: !GetAtt CcLaunchTemplate.LatestVersionNumber
@@ -673,8 +679,8 @@ Resources:
       AutoScalingGroupName: !Ref CcAutoScalingGroup
       InstanceReusePolicy: 
         ReuseOnScaleIn: !Ref AsgWarmPoolReuseOnScaleIn
-      MaxGroupPreparedCapacity: !Ref AsgWarmPoolMaxGroupPreparedCapacity
       MinSize: !Ref AsgWarmPoolMinSize
+      MaxGroupPreparedCapacity: !Ref AsgWarmPoolMaxGroupPreparedCapacity
       PoolState: !Ref AsgWarmPoolState
 
   # ASG Lambda Related resources
@@ -683,6 +689,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub '${AWS::StackName}-CcCloudwatchLogGroupForLambda'
+      RetentionInDays: !Ref AsgLogGroupRetentionInDays
 
   CcGetSecretsPolicyForLambda:
     Type: AWS::IAM::ManagedPolicy
@@ -706,7 +713,7 @@ Resources:
             Action:
               - 'cloudwatch:GetMetricStatistics'
               - 'cloudwatch:ListMetrics'
-              - 'cloudwatch:PutMetricData'
+              - 'cloudwatch:GetMetricData'
               - 'ec2:DescribeTags'
             Resource:
               - '*'
@@ -726,18 +733,6 @@ Resources:
               - !GetAtt 
                 - CcCloudwatchLogGroupForLambda
                 - Arn
-          - Effect: Allow
-            Action:
-              - 'logs:CreateLogGroup'
-            Resource:
-              - !Join
-                - ':'
-                - - arn
-                  - aws
-                  - 'logs:'
-                  - !Sub '${AWS::Region}'
-                  - !Sub '${AWS::AccountId}'
-                  - '*'
 
   CcAutoScalingLifecycleActionsPolicyForLambda:
     Type: AWS::IAM::ManagedPolicy
