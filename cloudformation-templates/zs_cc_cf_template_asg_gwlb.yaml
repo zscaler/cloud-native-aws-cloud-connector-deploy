@@ -16,12 +16,10 @@ Metadata:
         Parameters:
           - AsgMinSize
           - AsgMaxSize
-          - AsgHealthCheckGracePeriod
           - AsgLaunchTemplateVersion
           - AsgWarmPoolReuseOnScaleIn
           - AsgTargetTrackingMetric
           - AsgTargetCpuUtilValue
-          - AsgDefaultInstanceWarmup
           - AsgWarmPoolEnabled
           - AsgWarmPoolState
           - AsgWarmPoolMinSize
@@ -62,8 +60,6 @@ Metadata:
       NetworkCcSubnetIds:
         default: Subnet IDs for the Zscaler Cloud Connector ASG
 
-      AsgHealthCheckGracePeriod:
-        default: Auto-scaling Group Health Check Grace Period
       AsgLaunchTemplateVersion:
         default: Auto-scaling Group Launch Template Version
       AsgMinSize:
@@ -76,8 +72,6 @@ Metadata:
         default: Auto-scaling Group Target-tracking Metric
       AsgTargetCpuUtilValue:
         default: Auto-scaling Group Target Cpu Utilization Value
-      AsgDefaultInstanceWarmup:
-        default: Auto-scaling Group Default Instance Warmup Time
       AsgWarmPoolEnabled:
         default: Auto-scaling Group Warm Pool Enabled
       AsgWarmPoolState:
@@ -162,13 +156,6 @@ Parameters:
       NetworkCcSubnetIds:
         Description: "The subnet where the Zscaler Cloud Connector AMI is deployed."
         Type: List<AWS::EC2::Subnet::Id>
-
-      AsgHealthCheckGracePeriod:
-        Type: Number
-        MinValue: 0
-        Description: >-
-          The amount of time until EC2 Auto Scaling performs the first health check on new instances after they are put into service
-        Default: 0
       # AsgLaunchTemplateVersion:
       #   Type: String
       #   Description: >-
@@ -208,12 +195,6 @@ Parameters:
           Target value number for autoscaling policy CPU utilization target tracking. 
           ie: trigger a scale in/out to keep average CPU Utliization percentage across all instances at/under this number
         Default: 80
-      AsgDefaultInstanceWarmup:
-        Type: Number
-        Description: >-
-          The amount of time, in seconds, until a new instance is considered to have finished initializing and resource consumption to become stable after it enters the InService state.
-        Default: 0
-        MinValue: 0
       AsgWarmPoolEnabled:
         Type: String
         Description: "Select \"true\" to enable Auto-scaling Group warm pool (default), else \"false\""
@@ -271,6 +252,7 @@ Parameters:
         Description: >-
           The number of days to retain the log events in the specified log group. Possible values are: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, and 3653.
         Default: 3
+        AllowedPattern: '^(1|3|5|7|14|30|60|90|120|150|180|365|400|545|731|1096|1827|2192|2557|2922|3288|3653)$'
       
       GwlbAcceptanceRequiredVpcEps:
         Type: String
@@ -645,9 +627,9 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties: 
       AutoScalingGroupName: !Sub '${AWS::StackName}-CloudConnectorAutoScalingGroup'
-      HealthCheckGracePeriod: !Ref AsgHealthCheckGracePeriod
+      HealthCheckGracePeriod: 0
       HealthCheckType: EC2
-      DefaultInstanceWarmup: !Ref AsgDefaultInstanceWarmup
+      DefaultInstanceWarmup: 0
       LaunchTemplate: 
         LaunchTemplateId: !Ref CcLaunchTemplate
         Version: !GetAtt CcLaunchTemplate.LatestVersionNumber
