@@ -190,7 +190,7 @@ Parameters:
       AsgWarmPoolEnabled:
         Type: String
         Description: "Select \"true\" to enable Auto-scaling Group warm pool (default), else \"false\""
-        Default: false
+        Default: true
         AllowedValues:
           - true
           - false
