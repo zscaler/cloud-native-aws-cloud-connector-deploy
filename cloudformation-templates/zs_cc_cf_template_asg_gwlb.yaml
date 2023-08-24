@@ -12,8 +12,23 @@ Metadata:
           - NetworkAvailabilityZones
           - NetworkCcSubnetIds
       - Label:
+          default: Zscaler Launch Template Configuration
+        Parameters:
+          - ZscalerOsAmi
+          - ZscalerKeyPairName
+          - ZscalerCcInstanceProfile
+          - ZscalerCcMgmtIntfSecurityGroup
+          - ZscalerCcSrvcIntfSecurityGroup
+          - ZscalerSecretManagerSecretName
+          - ZscalerCcInstanceSize
+          - ZscalerAwsEc2InstanceType
+          - ZscalerCloudConnectorProvUrl
+          - ZscalerHttpProbePort
+      - Label:
           default: Auto-scaling Group Configuration
         Parameters:
+          - AsgS3BucketName
+          - AsgS3Key
           - AsgMinSize
           - AsgMaxSize
           - AsgLaunchTemplateVersion
@@ -28,32 +43,19 @@ Metadata:
       - Label:
           default: Gateway Loadbalancer Configuration
         Parameters:
-          - GwlbVpcEpSubnetIds
-          - GwlbVPCEpServicePrincipals
-          - GwlbAcceptanceRequiredVpcEps
           - GwlbHealthCheckInterval
           - GwlbHealthyThreshold
           - GwlbUnhealthyThreshold
           - GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy
           - GwlbFlowStickiness
           - GwlbCrossZoneLbEnabled
-      - Label:
-          default: Zscaler Configuration
-        Parameters:
-          - ZscalerOsAmi
-          - ZscalerKeyPairName
-          - ZscalerCcInstanceProfile
-          - ZscalerCcMgmtIntfSecurityGroup
-          - ZscalerCcSrvcIntfSecurityGroup
-          - ZscalerSecretManagerSecretName
-          - ZscalerCcInstanceSize
-          - ZscalerAwsEc2InstanceType
-          - ZscalerCloudConnectorProvUrl
-          - ZscalerHttpProbePort
+          - GwlbVpcEpSubnetIds
+          - GwlbVpcEpServicePrincipals
+          - GwlbAcceptanceRequiredVpcEps
 
     ParameterLabels:
       NetworkVpcId:
-        default: Vpc Id
+        default: VPC Id
       NetworkAvailabilityZones:
         default: Availability Zones to deploy Vms/Gateway LB Eps
       NetworkCcSubnetIds:
@@ -79,6 +81,10 @@ Metadata:
         default: Auto-scaling Group Warm Pool Max Group Prepared Capacity
       AsgLogGroupRetentionInDays:
         default: Log Group Retention
+      AsgS3BucketName:
+        default: Lambda S3 Bucket Name
+      AsgS3Key:
+        default: Lambda S3 Key
 
 
       GwlbAcceptanceRequiredVpcEps:
@@ -119,7 +125,7 @@ Metadata:
       ZscalerCloudConnectorProvUrl:
         default: Cloud Connector Provisioning URL
       ZscalerOsAmi:
-        default: Zscaler product ami
+        default: Zscaler Product AMI
   cfn-lint:
     config:
       ignore_checks:
@@ -147,7 +153,7 @@ Parameters:
         Type: 'AWS::EC2::VPC::Id'
       NetworkAvailabilityZones:
         Type: List<AWS::EC2::AvailabilityZone::Name>
-        Description: "A list of required Availability Zones to deploy Vms/Gateway LB Eps"
+        Description: "A list of required Availability Zones to deploy VMs/Gateway LB EPs"
       NetworkCcSubnetIds:
         Description: "The subnet where the Zscaler Cloud Connector AMI is deployed."
         Type: List<AWS::EC2::Subnet::Id>
@@ -205,7 +211,6 @@ Parameters:
         AllowedValues:
           - "Stopped"
           - "Running"
-          # - "Hibernated"
       AsgWarmPoolMaxGroupPreparedCapacity:
         Type: Number
         MinValue: -1
@@ -231,7 +236,7 @@ Parameters:
       AsgS3BucketName:
         Type: String
         AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
-        Description: AWS S3 Bucket name in this region
+        Description: AWS S3 Bucket name in this region where lambda deployment package zip file exists
       AsgS3Key:
         Type: String
         AllowedPattern: ^[0-9a-zA-Z-/_\.\s]*.zip$
@@ -365,8 +370,7 @@ Parameters:
         Description: "Secret Manager Secret Name, defaults to ZS/CC/credentials"
       ZscalerOsAmi:
         Type: AWS::EC2::Image::Id
-        Description: "Amazon Ec2 Image Id to use for the deployment"
-        Default: "ami-060ce026bafb4e0ff"
+        Description: "Amazon EC2 Image Id to use for the deployment"
 
 Conditions:
   ZscalerSecretsManagerNameNotEmpty: !Not
