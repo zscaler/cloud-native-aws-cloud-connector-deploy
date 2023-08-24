@@ -43,7 +43,6 @@ Metadata:
           - ZscalerOsAmi
           - ZscalerKeyPairName
           - ZscalerCcInstanceProfile
-          - ZscalerCcCallhomeEnabled
           - ZscalerCcMgmtIntfSecurityGroup
           - ZscalerCcSrvcIntfSecurityGroup
           - ZscalerSecretManagerSecretName
@@ -109,8 +108,6 @@ Metadata:
         default: Secrets Manager Secret Name
       ZscalerAwsEc2InstanceType:
         default: Zscaler Cloud Connector VM AWS EC2 instance type
-      ZscalerCcCallhomeEnabled:
-        default: Enable Cloud Connector Callhome
       ZscalerCcInstanceProfile:
         default: Existing IAM Role to use for Zscaler Cloud Connector
       ZscalerCcInstanceSize:
@@ -320,13 +317,6 @@ Parameters:
           - "t3.medium"
           - "c5a.large"
           - "m5n.large"
-      ZscalerCcCallhomeEnabled:
-        Type: String
-        Description: "Select \"true\" to create and assign callhome policy (default), else \"false\""
-        Default: true
-        AllowedValues:
-          - true
-          - false
       ZscalerCcInstanceProfile:
         Description: "[Optional] An Existing IAM Role ARN to use for Cc"
         Type: String
@@ -399,13 +389,6 @@ Conditions:
   CreateAsgWarmPool: !Equals
     - !Ref AsgWarmPoolEnabled
     - true
-  CreateCallhomePolicy: !And
-    - !Equals
-      - !Ref ZscalerCcCallhomeEnabled
-      - true
-    - !Equals
-      - !Ref ZscalerCcInstanceProfile
-      - "" 
   UseRootAsServicePrincipal: !Equals
     - !Join ["", !Ref GwlbVpcEpServicePrincipals]
     - ""
@@ -487,20 +470,6 @@ Resources:
             Resource:
               - '*'
 
-  CcCallHomePolicy:
-    Type: AWS::IAM::ManagedPolicy
-    Condition: CreateCallhomePolicy
-    Properties: 
-      Description: Zscaler Cloud Connector Call Home Policy
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Action:
-              - 'sts:AssumeRole'
-            Resource:
-              - 'arn:aws:iam::223544365242:role/callhome-delegation-role'
-
   CcCloudwatchMetricsPolicy:
     Type: AWS::IAM::ManagedPolicy
     Condition: CreateIamAndInstanceProfile
@@ -558,7 +527,6 @@ Resources:
         - !Ref CcSsmControlPolicy
         - !Ref CcCloudwatchMetricsPolicy
         - !Ref CcAutoScalingLifecycleActionsPolicy
-        - !If [CreateCallhomePolicy, !Ref CcCallHomePolicy, Ref: AWS::NoValue]
   
   CcInstanceProfile:
     Condition: CreateIamAndInstanceProfile
