@@ -68,8 +68,6 @@ Metadata:
         default: Auto-scaling Group Maximum Size
       AsgWarmPoolReuseOnScaleIn:
         default: Auto-scaling Group Reuse Instances on Scale In
-      AsgTargetTrackingMetric:
-        default: Auto-scaling Group Target-tracking Metric
       AsgTargetCpuUtilValue:
         default: Auto-scaling Group Target Cpu Utilization Value
       AsgWarmPoolEnabled:
@@ -180,16 +178,6 @@ Parameters:
         Description: >-
           Maximum number of Cloud Connectors to maintain in Autoscaling group
         Default: 4
-      AsgTargetTrackingMetric:
-        Type: String
-        Description: >-
-          The AWS ASG pre-defined target tracking metric type.
-          Cloud Connector recommends ASGAverageCPUUtilization
-        AllowedValues:
-          - "ASGAverageCPUUtilization"
-          # - "ASGAverageNetworkIn"
-          # - "ASGAverageNetworkOut"
-        Default: "ASGAverageCPUUtilization"
       AsgTargetCpuUtilValue:
         Type: Number
         Description: >-
@@ -280,7 +268,7 @@ Parameters:
         ConstraintDescription: >-
           Health Check Interval: Minimum 5 and maximum 300 seconds
         Description: "Interval for GWLB target group health check probing, in seconds, of Cloud Connector targets"
-        Default: 20
+        Default: 10
       GwlbHealthyThreshold:
         Type: Number
         MinValue: 2
@@ -652,7 +640,9 @@ Resources:
           HeartbeatTimeout: 1800
           LifecycleHookName: !Sub '${AWS::StackName}-CcAutoScalingGroupInitialLifecycleHookForTerminate'
           LifecycleTransition: "autoscaling:EC2_INSTANCE_TERMINATING"
-        
+      MetricsCollection:
+        - Granularity: "1Minute"
+
   CcAsgAutoScalingPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
     Properties: 
