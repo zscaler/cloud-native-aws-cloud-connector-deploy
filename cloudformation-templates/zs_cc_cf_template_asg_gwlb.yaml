@@ -85,7 +85,7 @@ Metadata:
 
 
       GwlbAcceptanceRequiredVpcEps:
-        default: Require acceptance for newly created Vpc Eps?
+        default: Require acceptance for newly created VPC EPs?
       GwlbCrossZoneLbEnabled:
         default: Enable Cross-zone Loadbalancing
       GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy:
@@ -93,9 +93,9 @@ Metadata:
       GwlbFlowStickiness:
         default: GWLB Flow Stickiness strategy
       GwlbVPCEpServicePrincipals:
-        default: Vpc Ep Service Principals
+        default: VPC Ep Service Principals
       GwlbVpcEpSubnetIds:
-        default: Vpc Ep Subnets to create Vpc EPs in (one per Az)
+        default: VPC EP Subnets to create VPC EPs in (one per Az)
       
       ZscalerHttpProbePort:
         default: HTTP Monitor Probe Port
@@ -242,7 +242,7 @@ Parameters:
       
       GwlbAcceptanceRequiredVpcEps:
         Type: String
-        Description: "Select \"true\" to require acceptance for new Vpc Eps, else \"false\" (default)"
+        Description: "Select \"true\" to require acceptance for new VPC EPs, else \"false\" (default)"
         Default: false
         AllowedValues:
           - true
@@ -276,8 +276,8 @@ Parameters:
         Description: "[Optional] A List of comma-separated service principal ARNs"
       GwlbVpcEpSubnetIds:
         Description: >- 
-          [Optional] A List of comma-separated Vpc Ep Subnets to create Vpc EPs in (one per Az).
-          Specifying subnets here will override Cloud-connector subnets being used for Vpc Eps
+          [Optional] A List of comma-separated VPC EP Subnets to create VPC EPs in (one per Az).
+          Specifying subnets here will override Cloud-connector subnets being used for VPC EPs
         Default: ""
         Type: CommaDelimitedList
 
