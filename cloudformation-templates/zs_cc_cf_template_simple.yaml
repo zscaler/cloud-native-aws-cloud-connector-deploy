@@ -310,19 +310,6 @@ Resources:
             Resource:
               - '*'
 
-  CcCallHomePolicy:
-    Type: AWS::IAM::ManagedPolicy
-    Properties: 
-      Description: Zscaler Cloud Connector Call Home Policy
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Action:
-              - 'sts:AssumeRole'
-            Resource:
-              - 'arn:aws:iam::223544365242:role/callhome-delegation-role'
-
   CcIamRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -340,7 +327,6 @@ Resources:
       ManagedPolicyArns:
         - !Ref CcGetSecretsPolicy
         - !Ref CcSsmControlPolicy
-        - !Ref CcCallHomePolicy
 
 
   CCHostProfile:
@@ -375,7 +361,7 @@ Resources:
         - Key: Name
           Value: !Sub '${AWS::StackName}-CloudConnector'
       UserData: !Base64
-        Fn::Join:
+        'Fn::Join':
           - |+
 
           - - '[ZSCALER]'
@@ -438,4 +424,4 @@ Outputs:
     Description: AMI ID In use in the Zscaler Cloud Connector VM
   CloudConnectorTemplateVersion:
     Description: Cloud Connector Template Version
-    Value: 0.1.1
+    Value: 0.1.3
