@@ -9,14 +9,30 @@ Metadata:
         Parameters:
           - Ec2Instances
           - Ec2InstancesHttpProbePort
-          - EnableCrossZoneLB
+          - GwlbHealthCheckInterval
+          - GwlbHealthyThreshold
+          - GwlbUnhealthyThreshold
+          - GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy
+          - GwlbFlowStickiness
+          - GwlbCrossZoneLbEnabled
+
     ParameterLabels:
       Ec2Instances:
         default: ZS CC instance IDs
       Ec2InstancesHttpProbePort:
         default: ZS CC instance Http Probe Port
-      EnableCrossZoneLB:
-        default: 'ZS CC GWLB, enable cross zone forwarding'
+      GwlbCrossZoneLbEnabled:
+        default: Enable Cross-zone Loadbalancing
+      GwlbHealthCheckInterval:
+        default: GWLB probe Health Check Interval
+      GwlbHealthyThreshold:
+        default: GWLB probe Healthy Threshold
+      GwlbUnhealthyThreshold:
+        default: GWLB probe Unhealthy Threshold
+      GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy:
+        default: GWLB target failover rebalance strategy
+      GwlbFlowStickiness:
+        default: GWLB Flow Stickiness strategy
   cfn-lint:
     config:
       ignore_checks:
@@ -42,13 +58,64 @@ Parameters:
     Description: >-
       The Http Probe Healthcheck Port for ZS Cloud Connectors. Allowed values
       are [80, 1024-65535]
-  EnableCrossZoneLB:
+  GwlbCrossZoneLbEnabled:
     Type: String
-    AllowedValues:
-      - false
-      - true
+    Description: "Select \"true\" to enable cross-zone loadbalancing (default), else \"false\""
     Default: true
-    Description: Enable Cross Zone GWLB operation
+    AllowedValues:
+      - true
+      - false
+  GwlbHealthCheckInterval:
+    Type: Number
+    MinValue: 5
+    MaxValue: 300
+    ConstraintDescription: >-
+      Health Check Interval: Minimum 5 and maximum 300 seconds
+    Description: "Interval for GWLB target group health check probing, in seconds, of Cloud Connector targets"
+    Default: 20
+  GwlbHealthyThreshold:
+    Type: Number
+    MinValue: 2
+    MaxValue: 10
+    ConstraintDescription: >-
+      Healthy Threshold: Minimum 2 and maximum 10
+    Description: "The number of successful health checks required before an unhealthy target becomes healthy"
+    Default: 2
+  GwlbUnhealthyThreshold:
+    Type: Number
+    MinValue: 2
+    MaxValue: 10
+    ConstraintDescription: >-
+      UnHealthy Threshold: Minimum 2 and maximum 10
+    Description: "The number of unsuccessful health checks required before a healthy target becomes unhealthy"
+    Default: 3
+  GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy:
+    Type: String
+    Description: "Select \"rebalance\" to enable rebalance failover on target deregistration or of target becomes unhealthy"
+    AllowedValues:
+      - no_rebalance
+      - rebalance
+    Default: rebalance
+  GwlbFlowStickiness:
+    Type: String
+    Description: >-
+      Select 2-tuple for source_ip_dest_ip, 3-tuple for source_ip_dest_ip_proto flow stickiness
+    Default: "5-tuple"
+    AllowedValues:
+      - "5-tuple"
+      - "2-tuple"
+      - "3-tuple"
+
+Conditions:
+  EnableFlowStickiness: !Not
+    - !Equals
+        - !Ref GwlbFlowStickiness
+        - "5-tuple"
+  Use3TupleFlowStickiness: !Equals
+    - !Ref GwlbFlowStickiness
+    - "3-tuple"
+
+
 Resources:
   ZSCCGWLBTargetGroup:
     Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
@@ -56,6 +123,10 @@ Resources:
       HealthCheckPath: /?cchealth
       HealthCheckPort: !Ref Ec2InstancesHttpProbePort
       HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: !Ref GwlbHealthCheckInterval
+      HealthyThresholdCount: !Ref GwlbHealthyThreshold
+      UnhealthyThresholdCount: !Ref GwlbUnhealthyThreshold
+
       Name: !Join
         - "-"
         - - ZSCCGWLBTargetGroup
@@ -63,6 +134,24 @@ Resources:
       Port: 6081
       Protocol: GENEVE
       TargetType: ip
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 0
+        - Key: target_failover.on_deregistration
+          Value: !Ref GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy
+        - Key: target_failover.on_unhealthy
+          Value: !Ref GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy
+        - Key: stickiness.enabled
+          Value: !If
+            - EnableFlowStickiness
+            - true
+            - false
+        - Key: stickiness.type
+          Value: !If
+            - Use3TupleFlowStickiness
+            - "source_ip_dest_ip_proto"
+            - "source_ip_dest_ip"
+
   ZSCCGWLBListener:
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
     Properties:
@@ -90,7 +179,7 @@ Resources:
     Properties:
       LoadBalancerAttributes:
         - Key: load_balancing.cross_zone.enabled
-          Value: !Ref EnableCrossZoneLB
+          Value: !Ref GwlbCrossZoneLbEnabled
       Name: !Join
         - "-"
         - - ZSCCGWLB
