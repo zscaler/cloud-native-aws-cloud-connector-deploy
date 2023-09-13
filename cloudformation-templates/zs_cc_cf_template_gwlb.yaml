@@ -9,9 +9,6 @@ Metadata:
         Parameters:
           - Ec2Instances
           - Ec2InstancesHttpProbePort
-          - GwlbHealthCheckInterval
-          - GwlbHealthyThreshold
-          - GwlbUnhealthyThreshold
           - GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy
           - GwlbFlowStickiness
           - GwlbCrossZoneLbEnabled
@@ -23,12 +20,6 @@ Metadata:
         default: ZS CC instance Http Probe Port
       GwlbCrossZoneLbEnabled:
         default: Enable Cross-zone Loadbalancing
-      GwlbHealthCheckInterval:
-        default: GWLB probe Health Check Interval
-      GwlbHealthyThreshold:
-        default: GWLB probe Healthy Threshold
-      GwlbUnhealthyThreshold:
-        default: GWLB probe Unhealthy Threshold
       GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy:
         default: GWLB target failover rebalance strategy
       GwlbFlowStickiness:
@@ -65,30 +56,6 @@ Parameters:
     AllowedValues:
       - true
       - false
-  GwlbHealthCheckInterval:
-    Type: Number
-    MinValue: 5
-    MaxValue: 300
-    ConstraintDescription: >-
-      Health Check Interval: Minimum 5 and maximum 300 seconds
-    Description: "Interval for GWLB target group health check probing, in seconds, of Cloud Connector targets"
-    Default: 20
-  GwlbHealthyThreshold:
-    Type: Number
-    MinValue: 2
-    MaxValue: 10
-    ConstraintDescription: >-
-      Healthy Threshold: Minimum 2 and maximum 10
-    Description: "The number of successful health checks required before an unhealthy target becomes healthy"
-    Default: 2
-  GwlbUnhealthyThreshold:
-    Type: Number
-    MinValue: 2
-    MaxValue: 10
-    ConstraintDescription: >-
-      UnHealthy Threshold: Minimum 2 and maximum 10
-    Description: "The number of unsuccessful health checks required before a healthy target becomes unhealthy"
-    Default: 3
   GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy:
     Type: String
     Description: "Select \"rebalance\" to enable rebalance failover on target deregistration or of target becomes unhealthy"
@@ -123,9 +90,9 @@ Resources:
       HealthCheckPath: /?cchealth
       HealthCheckPort: !Ref Ec2InstancesHttpProbePort
       HealthCheckProtocol: HTTP
-      HealthCheckIntervalSeconds: !Ref GwlbHealthCheckInterval
-      HealthyThresholdCount: !Ref GwlbHealthyThreshold
-      UnhealthyThresholdCount: !Ref GwlbUnhealthyThreshold
+      HealthCheckIntervalSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
 
       Name: !Join
         - "-"
