@@ -287,20 +287,15 @@ Parameters:
         Default: "m6i.large"
         AllowedValues:
           - t3.medium
+          - t3a.medium
           - c5a.large
           - m5n.large
-          - m5a.large
           - m6i.large
-          - m6a.large
           - c6i.large
-          - c6a.large
           - m5n.4xlarge
-          - m5a.4xlarge
-          - c5a.4xlarge
+          - c5.4xlarge
           - m6i.4xlarge
-          - m6a.4xlarge
           - c6i.4xlarge
-          - c6a.4xlarge
       ZscalerCcInstanceProfile:
         Description: "[Optional] An Existing IAM Role ARN to use for Cc"
         Type: String
