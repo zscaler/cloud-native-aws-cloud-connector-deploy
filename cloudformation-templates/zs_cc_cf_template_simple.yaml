@@ -235,6 +235,19 @@ Resources:
           FromPort: '0'
           ToPort: '65535'
           CidrIp: 0.0.0.0/0
+  MgmtXface:
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      SubnetId: !Ref CCSubnetID
+      Description: Interface for management traffic
+      GroupSet:
+        - !Ref MgmtSecurityGroup
+      SourceDestCheck: 'true'
+      Tags:
+        - Key: Network
+          Value: !Sub '${AWS::StackName}-Management'
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-CloudConnectorMgmtIF'
   ServiceXface:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
@@ -390,10 +403,6 @@ Resources:
     Type: 'AWS::EC2::Instance'
     Properties:
       KeyName: !Ref KeyPairName
-      AvailabilityZone: !Ref AvailabilityZone
-      SubnetId: !Ref CCSubnetID
-      SecurityGroupIds:
-        - !Ref MgmtSecurityGroup
       IamInstanceProfile: !Ref CCHostProfile
       InstanceType: !Ref InstanceType
       LaunchTemplate:
@@ -412,16 +421,19 @@ Resources:
             - !Join ['=', [ 'CC_URL', !Ref CloudConnectorProvUrl]]
             - !Join ['=', ['SECRET_NAME', !If [SecretsManagerNameNotEmpty, !Ref ZscalerSecretManagerSecretName, 'ZS/CC/credentials']]]
             - !Join ['=', ['HTTP_PROBE_PORT', !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '']]]
-  SrvcNetworkInterfaceAttachment:
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref 'ServiceXface'
+          DeviceIndex: '0'
+  MgmtNetworkInterfaceAttachment:
     Type: 'AWS::EC2::NetworkInterfaceAttachment'
     Properties:
       InstanceId:
         Ref: Ec2Instance
       NetworkInterfaceId:
-        Ref: ServiceXface
+        Ref: MgmtXface
       DeviceIndex: 1
       DeleteOnTermination: false
-  SrvcNetworkInterface2Attachment:
+  SrvcNetworkInterface1Attachment:
     Condition: CreateCCMediumServiceXfaces
     Type: 'AWS::EC2::NetworkInterfaceAttachment'
     Properties:
@@ -462,6 +474,13 @@ Resources:
       DeviceIndex: 5
       DeleteOnTermination: false
 Outputs:
+  FwdPrivateIP:
+    Description: Zscaler Cloud Connector Instance Forwarding Private IP
+    Value: !GetAtt
+      - ServiceXface
+      - PrimaryPrivateIpAddress
+    Export:
+      Name: !Sub '${AWS::StackName}-FwdPrivateIP'
   MgmtPrivateIP:
     Description: Zscaler Cloud Connector Instance Mgmt Private IP
     Value: !GetAtt
