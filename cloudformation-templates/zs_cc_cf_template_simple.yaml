@@ -477,15 +477,15 @@ Outputs:
   FwdPrivateIP:
     Description: Zscaler Cloud Connector Instance Forwarding Private IP
     Value: !GetAtt
-      - ServiceXface
-      - PrimaryPrivateIpAddress
+      - Ec2Instance
+      - PrivateIp
     Export:
       Name: !Sub '${AWS::StackName}-FwdPrivateIP'
   MgmtPrivateIP:
     Description: Zscaler Cloud Connector Instance Mgmt Private IP
     Value: !GetAtt
-      - Ec2Instance
-      - PrivateIp
+      - MgmtXface
+      - PrimaryPrivateIpAddress
     Export:
       Name: !Sub '${AWS::StackName}-MgmtPrivateIP'
   ServiceEni:
