@@ -433,7 +433,7 @@ Resources:
         Ref: MgmtXface
       DeviceIndex: 1
       DeleteOnTermination: false
-  SrvcNetworkInterface1Attachment:
+  SrvcNetworkInterface2Attachment:
     Condition: CreateCCMediumServiceXfaces
     Type: 'AWS::EC2::NetworkInterfaceAttachment'
     Properties:
