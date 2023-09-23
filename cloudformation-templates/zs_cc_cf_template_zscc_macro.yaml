@@ -110,7 +110,7 @@ Resources:
                   logger.info(f"Instance: {instance_id}, Type: {instance_type}")
                   if instance_type not in InstanceTypes:
                     InstanceTypes.append(instance_type)
-                  # Only works for static mgmt NIC at index 0
+                  # Only works for static service NIC at index 0
                   enis = [e for e in
                     instance.network_interfaces_attribute if e.get("Attachment").get("DeviceIndex") == 0]
                   # Let's keep track of how many enis this instance has
