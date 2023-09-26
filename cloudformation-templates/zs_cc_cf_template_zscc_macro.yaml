@@ -812,4 +812,4 @@ Resources:
 Outputs:
   CloudConnectorMacroTemplateVersion:
     Description: Cloud Connector Macro Template Version
-    Value: 0.1.3
+    Value: 1.0.0
