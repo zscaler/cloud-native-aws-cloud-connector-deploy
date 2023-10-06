@@ -392,6 +392,13 @@ Resources:
       LaunchTemplate:
         LaunchTemplateId: !Ref CCImdsv2LaunchTemplate
         Version: !GetAtt CCImdsv2LaunchTemplate.LatestVersionNumber
+      EbsOptimized: "true"
+      BlockDeviceMappings: 
+      - DeviceName: "/dev/sda1"
+        Ebs: 
+          VolumeType: "gp3"
+          DeleteOnTermination: "true"
+          Encrypted: "true" #make this a condition
       Tags:
         - Key: Role
           Value: !Sub '${AWS::StackName}-ZSCCInstance'
