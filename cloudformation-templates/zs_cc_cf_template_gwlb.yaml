@@ -15,15 +15,15 @@ Metadata:
 
     ParameterLabels:
       Ec2Instances:
-        default: ZS CC instance IDs
+        default: Cloud Connector Instance IDs
       Ec2InstancesHttpProbePort:
-        default: ZS CC instance Http Probe Port
+        default: Cloud Connector Instance HTTP Probe Port
       GwlbCrossZoneLbEnabled:
-        default: Enable Cross-zone Loadbalancing
+        default: Enable Cross-Zone Load Balancing
       GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy:
-        default: GWLB target failover rebalance strategy
+        default: GWLB Target Failover Rebalance Strategy
       GwlbFlowStickiness:
-        default: GWLB Flow Stickiness strategy
+        default: GWLB Flow Stickiness Strategy
   cfn-lint:
     config:
       ignore_checks:
@@ -39,26 +39,24 @@ Parameters:
   Ec2Instances:
     Type: List<AWS::EC2::Instance::Id>
     Description: >-
-      AWS EC2 Instance IDs for ZS Cloud Connectors that are to be added to the
-      GWLB
+      AWS EC2 Instance IDs for Zscaler Cloud Connectors to add to the GWLB Target Group
   Ec2InstancesHttpProbePort:
     Type: String
     AllowedPattern: >-
       ^(80|102[4-9]|10[3-9]\d|1[1-9]\d{2}|[2-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$
     ConstraintDescription: 'The HTTP probe port''s allowed values are [80, 1024-65535]'
     Description: >-
-      The Http Probe Healthcheck Port for ZS Cloud Connectors. Allowed values
-      are [80, 1024-65535]
+      The HTTP Health Check Probe Port. Allowed values are [80, 1024-65535]. This MUST match what was configured in the deployment stack.
   GwlbCrossZoneLbEnabled:
     Type: String
-    Description: "Select \"true\" to enable cross-zone loadbalancing (default), else \"false\""
+    Description: "Select \"true\" to enable cross-zone load balancing (default), else \"false\" to disable"
     Default: true
     AllowedValues:
       - true
       - false
   GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy:
     Type: String
-    Description: "Select \"rebalance\" to enable rebalance failover on target deregistration or of target becomes unhealthy"
+    Description: "Select \"rebalance\" to enable rebalance failover on target deregistration or if target becomes unhealthy"
     AllowedValues:
       - no_rebalance
       - rebalance

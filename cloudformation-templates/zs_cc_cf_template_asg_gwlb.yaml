@@ -25,7 +25,7 @@ Metadata:
           - ZscalerCloudConnectorProvUrl
           - ZscalerHttpProbePort
       - Label:
-          default: Auto-scaling Group Configuration
+          default: Auto Scaling Group Configuration
         Parameters:
           - AsgS3BucketName
           - AsgS3Key
@@ -41,7 +41,7 @@ Metadata:
           - AsgWarmPoolMaxGroupPreparedCapacity
           - AsgLogGroupRetentionInDays
       - Label:
-          default: Gateway Loadbalancer Configuration
+          default: Gateway Load Balancer Configuration
         Parameters:
           - GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy
           - GwlbFlowStickiness
@@ -52,30 +52,30 @@ Metadata:
 
     ParameterLabels:
       NetworkVpcId:
-        default: VPC Id
+        default: VPC ID
       NetworkAvailabilityZones:
-        default: Availability Zones to deploy Vms/Gateway LB Eps
+        default: Choose an Availability Zone to Deploy Cloud Connector and GWLB/VPC Endpoints
       NetworkCcSubnetIds:
-        default: Subnet IDs for the Zscaler Cloud Connector ASG
+        default: Subnet ID for the Zscaler Cloud Connector Auto Scaling Group
 
       AsgLaunchTemplateVersion:
-        default: Auto-scaling Group Launch Template Version
+        default: Auto Scaling Group Launch Template Version
       AsgMinSize:
-        default: Auto-scaling Group Minimum Size
+        default: Auto Scaling Group Minimum Size
       AsgMaxSize:
-        default: Auto-scaling Group Maximum Size
+        default: Auto Scaling Group Maximum Size
       AsgWarmPoolReuseOnScaleIn:
-        default: Auto-scaling Group Reuse Instances on Scale In
+        default: Auto Scaling Group Reuse Instances on Scale In
       AsgTargetCpuUtilValue:
-        default: Auto-scaling Group Target Cpu Utilization Value
+        default: Auto Scaling Group Target CPU Utilization Value
       AsgWarmPoolEnabled:
-        default: Auto-scaling Group Warm Pool Enabled
+        default: Auto Scaling Group Warm Pool Enabled
       AsgWarmPoolState:
-        default: Auto-scaling Group Warm Pool State
+        default: Auto Scaling Group Warm Pool State
       AsgWarmPoolMinSize:
-        default: Auto-scaling Group Warm Pool Minimum Size
+        default: Auto Scaling Group Warm Pool Minimum Size
       AsgWarmPoolMaxGroupPreparedCapacity:
-        default: Auto-scaling Group Warm Pool Max Group Prepared Capacity
+        default: Auto Scaling Group Warm Pool Max Group Prepared Capacity
       AsgLogGroupRetentionInDays:
         default: Log Group Retention
       AsgS3BucketName:
@@ -85,38 +85,38 @@ Metadata:
 
 
       GwlbAcceptanceRequiredVpcEps:
-        default: Require acceptance for newly created VPC EPs?
+        default: Require Acceptance For Newly Created VPC Endpoints?
       GwlbCrossZoneLbEnabled:
-        default: Enable Cross-zone Loadbalancing
+        default: Enable Cross-Zone Load Balancing
       GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy:
-        default: GWLB target failover rebalance strategy
+        default: GWLB Target Failover Rebalance Strategy
       GwlbFlowStickiness:
-        default: GWLB Flow Stickiness strategy
-      GwlbVPCEpServicePrincipals:
-        default: VPC Ep Service Principals
+        default: GWLB Flow Stickiness Strategy
+      GwlbVpcEpServicePrincipals:
+        default: VPC Endpoint Service Principals
       GwlbVpcEpSubnetIds:
-        default: VPC EP Subnets to create VPC EPs in (one per Az)
+        default: VPC Endpoint Subnets to Create VPC Endpoints in (one per AZ)
       
       ZscalerHttpProbePort:
         default: HTTP Monitor Probe Port
       ZscalerKeyPairName:
-        default: Zscaler Cloud Connector instance key pair
+        default: Zscaler Cloud Connector Instance Key Pair
       ZscalerSecretManagerSecretName:
         default: Secrets Manager Secret Name
       ZscalerAwsEc2InstanceType:
-        default: Zscaler Cloud Connector VM AWS EC2 instance type
+        default: Zscaler Cloud Connector AWS EC2 Instance Type
       ZscalerCcInstanceProfile:
         default: Existing IAM Role to use for Zscaler Cloud Connector
       ZscalerCcInstanceSize:
-        default: Zscaler Cloud Connector instance size
+        default: Zscaler Cloud Connector Instance Size
       ZscalerCcMgmtIntfSecurityGroup:
-        default: Zscaler Cloud Connector Mgmt Intf Security Group
+        default: Zscaler Cloud Connector Management Interface Security Group
       ZscalerCcSrvcIntfSecurityGroup:
-        default: Zscaler Cloud Connector Srvc Intf Security Group
+        default: Zscaler Cloud Connector Service Interface Security Group
       ZscalerCloudConnectorProvUrl:
         default: Cloud Connector Provisioning URL
       ZscalerOsAmi:
-        default: Zscaler Product AMI
+        default: Zscaler Cloud Connector AMI
   cfn-lint:
     config:
       ignore_checks:
@@ -140,11 +140,11 @@ Transform:
 
 Parameters:
       NetworkVpcId:
-        Description: "The VPC ID where you want to deploy your Cloud Connector Instances."
+        Description: "The VPC ID where you want to deploy your Cloud Connector Instances"
         Type: 'AWS::EC2::VPC::Id'
       NetworkAvailabilityZones:
         Type: List<AWS::EC2::AvailabilityZone::Name>
-        Description: "A list of required Availability Zones to deploy VMs/Gateway LB EPs"
+        Description: "A list of required Availability Zones to deploy VMs/Gateway LB Endpoints"
       NetworkCcSubnetIds:
         Description: "The subnet where the Zscaler Cloud Connector AMI is deployed."
         Type: List<AWS::EC2::Subnet::Id>
@@ -180,14 +180,14 @@ Parameters:
         Default: 80
       AsgWarmPoolEnabled:
         Type: String
-        Description: "Select \"true\" to enable Auto-scaling Group warm pool (default), else \"false\""
+        Description: "Select \"true\" to enable Auto Scaling Group warm pool (default), else \"false\""
         Default: true
         AllowedValues:
           - true
           - false
       AsgWarmPoolReuseOnScaleIn:
         Type: String
-        Description: "Select \"true\" to enable Auto-scaling Group reuse instance on scale-in, else \"false\" (default)"
+        Description: "Select \"true\" to enable Auto Scaling Group reuse instance on scale-in, else \"false\" (default)"
         Default: false
         AllowedValues:
           - true
@@ -197,7 +197,7 @@ Parameters:
         Description: >-
           Sets the instance state to transition to after the lifecycle hooks finish. 
           Valid values are: Stopped (default), Running or Hibernated. 
-          Ignored when 'Auto-scaling Group Warm Pool Enabled' is No
+          Ignored when 'Auto Scaling Group Warm Pool Enabled' is No
         Default: "Stopped"
         AllowedValues:
           - "Stopped"
@@ -212,7 +212,7 @@ Parameters:
         Description: >-
           Specifies the total maximum number of instances that are allowed to be in the warm pool or in any state except Terminated for the Auto Scaling group. 
           Specify it only if you do not want the warm pool size to be determined by the difference between the group's maximum capacity and its desired capacity. 
-          Ignored when 'Auto-scaling Group Warm Pool Enabled' is No       
+          Ignored when 'Auto Scaling Group Warm Pool Enabled' is No       
       AsgWarmPoolMinSize:
         Type: Number
         MinValue: 0
@@ -223,7 +223,7 @@ Parameters:
         Description: >-
           Specifies the minimum number of instances to maintain in the warm pool. 
           This helps you to ensure that there is always a certain number of warmed instances available to handle traffic spikes. 
-          Ignored when 'Auto-scaling Group Warm Pool Enabled' is No
+          Ignored when 'Auto Scaling Group Warm Pool Enabled' is No
       AsgS3BucketName:
         Type: String
         AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
@@ -242,14 +242,14 @@ Parameters:
       
       GwlbAcceptanceRequiredVpcEps:
         Type: String
-        Description: "Select \"true\" to require acceptance for new VPC EPs, else \"false\" (default)"
+        Description: "Select \"true\" to require acceptance for new VPC Endpoints, else \"false\" (default)"
         Default: false
         AllowedValues:
           - true
           - false
       GwlbCrossZoneLbEnabled:
         Type: String
-        Description: "Select \"true\" to enable cross-zone loadbalancing (default), else \"false\""
+        Description: "Select \"true\" to enable cross-zone load balancing (default), else \"false\""
         Default: true
         AllowedValues:
           - true
@@ -276,14 +276,14 @@ Parameters:
         Description: "[Optional] A List of comma-separated service principal ARNs"
       GwlbVpcEpSubnetIds:
         Description: >- 
-          [Optional] A List of comma-separated VPC EP Subnets to create VPC EPs in (one per Az).
-          Specifying subnets here will override Cloud-connector subnets being used for VPC EPs
+          [Optional] A List of comma-separated VPC EP Subnets to create VPC Endpoints in (one per Az).
+          Specifying subnets here will override Cloud-connector subnets being used for VPC Endpoints
         Default: ""
         Type: CommaDelimitedList
 
       ZscalerAwsEc2InstanceType:
         Type: String
-        Description: "The Amazon EC2 instance type for the ZS instances."
+        Description: "The AWS EC2 instance type for the Cloud Connector instances"
         Default: "m6i.large"
         AllowedValues:
           - t3.medium
@@ -297,7 +297,7 @@ Parameters:
           - m6i.4xlarge
           - c6i.4xlarge
       ZscalerCcInstanceProfile:
-        Description: "[Optional] An Existing IAM Role ARN to use for Cc"
+        Description: "[Optional] An Existing IAM Role ARN to use for Cloud Connector"
         Type: String
         # Default: "arn:aws:iam::223544365242:instance-profile/ASGGWLB3-CcInstanceProfile-hseOMwjBXTSi"
         AllowedPattern: '^$|^arn:aws:iam::[0-9]+:instance-profile/.*$'
@@ -307,10 +307,10 @@ Parameters:
         AllowedValues:
           - "small"
         Default: "small"
-        Description: "The instance type for Zscaler Cloud Connector (small)"
+        Description: "The instance size for Zscaler Cloud Connector (small)"
         Type: String    
       ZscalerCcMgmtIntfSecurityGroup:
-        Description: "[Optional] An Existing Security Group Id to apply to Mgmt Interfaces"
+        Description: "[Optional] An Existing Security Group Id to apply to Managementt Interfaces"
         Type: String
         AllowedPattern: "^$|^sg-[0-9a-f]+$"
         ConstraintDescription: >-
@@ -326,7 +326,7 @@ Parameters:
         ConstraintDescription: >-
           Please input the Cloud Connector Provisioning Template URL to use from
           your Zscaler Cloud Connector Portal
-        Description: "Cloud Connector Prov URL"
+        Description: "Cloud Connector Provisioning URL"
         Type: String
       ZscalerHttpProbePort:
         Type: String
@@ -337,14 +337,14 @@ Parameters:
         Default: 50000
       ZscalerKeyPairName:
         Type: AWS::EC2::KeyPair::KeyName
-        Description: "AWS Ec2 Instance Access KeyPair"
+        Description: "AWS EC2 Instance Access KeyPair"
       ZscalerSecretManagerSecretName:
         Type: String
         Default: "ZS/CC/credentials"
         Description: "Secret Manager Secret Name, defaults to ZS/CC/credentials"
       ZscalerOsAmi:
         Type: AWS::EC2::Image::Id
-        Description: "Amazon EC2 Image Id to use for the deployment"
+        Description: "[Optional] Amazon EC2 Image ID to use for the deployment. Leave empty to deploy the latest marketplace AMI"
 
 Conditions:
   ZscalerSecretsManagerNameNotEmpty: !Not
@@ -713,7 +713,7 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Handler: zscaler_cc_lambda_service.lambda_handler
-      Description: Auto-scaling Group Lambda for Failure management
+      Description: Auto Scaling Group Lambda for Failure management
       Timeout: 180
       MemorySize: 256
       Role: !GetAtt
@@ -915,13 +915,13 @@ Outputs:
           - !GetAtt [ CcInstanceProfile, Arn ]
           - !Ref ZscalerCcInstanceProfile
   ZscalerCcMgmtIntfSecurityGroupInUse:
-    Description: Mgmt Intf Security Group being used by the CcInstances
+    Description: Management Interface Security Group being used by the CcInstances
     Value: !If
             - CreateMgmtIntfSecurityGroup
             - !GetAtt [ MgmtSecurityGroup, GroupId ]
             - !Ref ZscalerCcMgmtIntfSecurityGroup
   ZscalerCcSrvcIntfSecurityGroupInUse:
-    Description: Srvc Intf Security Group being used by the CcInstances
+    Description: Service Interface Security Group being used by the CcInstances
     Value: !If
             - CreateSrvcIntfSecurityGroup
             - !GetAtt [ ServiceSecurityGroup, GroupId ]
@@ -933,5 +933,5 @@ Outputs:
     Description: Zscaler Cloud Connector VPC Endpoint Service
     Value: !Ref CcVpcEpService
   ZscalerCcVpcEp:
-    Description: Use this VPC EP for route nexthops
+    Description: Use this VPC Endpoint for route nexthops
     Value: !Ref CcVpcEp
