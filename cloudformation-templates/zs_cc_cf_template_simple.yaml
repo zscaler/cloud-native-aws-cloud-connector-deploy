@@ -21,6 +21,7 @@ Metadata:
           - CloudConnectorProvUrl
           - ZscalerSecretManagerSecretName
           - HttpProbePort
+          - ZscalerEBSEncryptionEnabled
     ParameterLabels:
       InstanceType:
         default: Zscaler Cloud Connector AWS EC2 Instance Type
@@ -42,6 +43,8 @@ Metadata:
         default: Secrets Manager Secret Name
       HttpProbePort:
         default: HTTP Monitor Probe Port
+      ZscalerEBSEncryptionEnabled:
+        default: EBS Encryption Enabled
   cfn-lint:
     config:
       ignore_checks:
@@ -115,6 +118,13 @@ Parameters:
           The HTTP probe port's allowed values are [80, 1024-65535]
     Description: "HTTP Monitor probe port to listen on for monitoring probes"
     Default: 50000
+  ZscalerEBSEncryptionEnabled:
+        Type: String
+        Description: "Select \"true\" to enable EBS encryption (default), else \"false\""
+        Default: true
+        AllowedValues:
+          - true
+          - false
 
 Conditions:
   SecretsManagerNameNotEmpty: !Not [!Equals [!Ref ZscalerSecretManagerSecretName, '']]
@@ -401,7 +411,7 @@ Resources:
         Ebs: 
           VolumeType: "gp3"
           DeleteOnTermination: "true"
-          Encrypted: "true" #make this a condition
+          Encrypted: !Ref ZscalerEBSEncryptionEnabled
       Tags:
         - Key: Role
           Value: !Sub '${AWS::StackName}-ZSCCInstance'
