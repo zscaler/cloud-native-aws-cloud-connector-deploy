@@ -24,6 +24,7 @@ Metadata:
           - ZscalerAwsEc2InstanceType
           - ZscalerCloudConnectorProvUrl
           - ZscalerHttpProbePort
+          - ZscalerEBSEncryptionEnabled
       - Label:
           default: Auto Scaling Group Configuration
         Parameters:
@@ -117,6 +118,9 @@ Metadata:
         default: Cloud Connector Provisioning URL
       ZscalerOsAmi:
         default: Zscaler Cloud Connector AMI
+      ZscalerEBSEncryptionEnabled:
+        default: EBS Encryption Enabled
+      
   cfn-lint:
     config:
       ignore_checks:
@@ -345,7 +349,14 @@ Parameters:
       ZscalerOsAmi:
         Type: AWS::EC2::Image::Id
         Description: "[Optional] Amazon EC2 Image ID to use for the deployment. Leave empty to deploy the latest marketplace AMI"
-
+      ZscalerEBSEncryptionEnabled:
+        Type: String
+        Description: "Select \"true\" to enable EBS encryption (default), else \"false\""
+        Default: true
+        AllowedValues:
+          - true
+          - false
+          
 Conditions:
   ZscalerSecretsManagerNameNotEmpty: !Not
     - !Equals 
@@ -561,6 +572,13 @@ Resources:
             Groups: 
               - "Fn::If": [CreateMgmtIntfSecurityGroup, !Ref MgmtSecurityGroup, !Ref ZscalerCcMgmtIntfSecurityGroup]
             AssociatePublicIpAddress: false
+        EbsOptimized: "true"
+        BlockDeviceMappings: 
+          - Ebs:
+              VolumeType: gp3
+              DeleteOnTermination: true
+              Encrypted: !Ref ZscalerEBSEncryptionEnabled
+            DeviceName: /dev/sda1
   
   CcAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
