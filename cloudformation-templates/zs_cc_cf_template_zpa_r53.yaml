@@ -83,7 +83,7 @@ Parameters:
     Default: ZPA
     Type: String
   ApplicationDomainNames:
-    Description: Comma Seperated Application Domain Names(Max 4096 characters)
+    Description: Comma Seperated Application Domain Names (Max 4096 characters)
     Type: CommaDelimitedList
 
 Rules:

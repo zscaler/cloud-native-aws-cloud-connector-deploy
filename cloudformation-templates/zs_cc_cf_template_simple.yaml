@@ -6,13 +6,13 @@ Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
       - Label:
-          default: Network configuration
+          default: Network Configuration
         Parameters:
           - VPCID
           - AvailabilityZone
           - CCSubnetID
       - Label:
-          default: Zscaler Cloud Connector configuration
+          default: Zscaler Cloud Connector Configuration
         Parameters:
           - ZscalerOSAMI
           - KeyPairName
@@ -21,25 +21,30 @@ Metadata:
           - CloudConnectorProvUrl
           - ZscalerSecretManagerSecretName
           - HttpProbePort
+          - ZscalerEBSEncryptionEnabled
     ParameterLabels:
       InstanceType:
-        default: Zscaler Cloud Connector VM AWS EC2 instance type
+        default: Zscaler Cloud Connector AWS EC2 Instance Type
       CCInstanceType:
-        default: Zscaler Cloud Connector instance type
+        default: Zscaler Cloud Connector Instance Size
       KeyPairName:
-        default: Zscaler Cloud Connector instance key pair
+        default: Zscaler Cloud Connector Instance Key Pair
       ZscalerOSAMI:
         default: Zscaler product
       VPCID:
-        default: VPC ID
+        default: Choose a VPC ID to Deploy Cloud Connector
+      AvailabilityZone:
+        default: Choose an Availability Zone to Deploy Cloud Connector
       CCSubnetID:
-        default: Subnet ID of Zscaler Cloud Connector
+        default: Choose a Subnet ID to Deploy Cloud Connector
       CloudConnectorProvUrl:
         default: Cloud Connector Provisioning URL
       ZscalerSecretManagerSecretName:
-        default: Secrets Manager Secret Name (Optional)
+        default: Secrets Manager Secret Name
       HttpProbePort:
-        default: HTTP Monitor Probe Port (Optional)
+        default: HTTP Monitor Probe Port
+      ZscalerEBSEncryptionEnabled:
+        default: EBS Encryption Enabled
   cfn-lint:
     config:
       ignore_checks:
@@ -72,7 +77,7 @@ Parameters:
       - m6i.4xlarge
       - c6i.4xlarge
     Default: m6i.large
-    Description: Amazon EC2 instance type for the ZS instances.
+    Description: The AWS EC2 instance type for the Cloud Connector instances
     Type: String
   CCInstanceType:
     AllowedValues:
@@ -80,26 +85,26 @@ Parameters:
       - medium
       - large
     Default: small
-    Description: ZS Cloud Connector Instance type
+    Description: "The instance size for Zscaler Cloud Connector (small)"
     Type: String    
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: EC2 Instance Access KeyPair
+    Description: EC2 Instance Access Key Pair
   VPCID:
-    Description: 'ID of the VPC (e.g., vpc-0343606e).'
+    Description: 'The VPC ID where you want to deploy your Cloud Connector Instances'
     Type: 'AWS::EC2::VPC::Id'
   AvailabilityZone:
-    Description: Availability Zone of the subnets
+    Description: Choose an Availability Zone to Deploy Cloud Connector
     Type: 'AWS::EC2::AvailabilityZone::Name'
   CCSubnetID:
-    Description: ID of the Zscaler CC Subnet
+    Description: Must exist in the VPC and availability zone selected in the previous steps
     Type: 'AWS::EC2::Subnet::Id'
   CloudConnectorProvUrl:
     AllowedPattern: '(admin|connector).zs.*.net(/ec)?/w?api/v1/provUrl\?name=[\w-_]+'
     ConstraintDescription: >-
       Please input the Cloud Connector Provisioning Template URL to use from
       your Zscaler Cloud Connector Portal
-    Description: Cloud Connector Prov URL
+    Description: Cloud Connector Provisioning URL
     Type: String
   ZscalerSecretManagerSecretName:
     Type: String
@@ -110,8 +115,16 @@ Parameters:
     Type: String
     AllowedPattern: '^$|^(80|102[4-9]|10[3-9]\d|1[1-9]\d{2}|[2-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$'
     ConstraintDescription: >-
-      When specified, the HTTP probe port's allowed values are [80, 1024-65535]
-    Description: HTTP Monitor probe port to listen on for monitoring probes
+          The HTTP probe port's allowed values are [80, 1024-65535]
+    Description: "HTTP Monitor probe port to listen on for monitoring probes"
+    Default: 50000
+  ZscalerEBSEncryptionEnabled:
+        Type: String
+        Description: "Select \"true\" to enable EBS encryption (default), else \"false\""
+        Default: true
+        AllowedValues:
+          - true
+          - false
 
 Conditions:
   SecretsManagerNameNotEmpty: !Not [!Equals [!Ref ZscalerSecretManagerSecretName, '']]
@@ -392,6 +405,13 @@ Resources:
       LaunchTemplate:
         LaunchTemplateId: !Ref CCImdsv2LaunchTemplate
         Version: !GetAtt CCImdsv2LaunchTemplate.LatestVersionNumber
+      EbsOptimized: "true"
+      BlockDeviceMappings: 
+      - DeviceName: "/dev/sda1"
+        Ebs: 
+          VolumeType: "gp3"
+          DeleteOnTermination: "true"
+          Encrypted: !Ref ZscalerEBSEncryptionEnabled
       Tags:
         - Key: Role
           Value: !Sub '${AWS::StackName}-ZSCCInstance'
