@@ -534,23 +534,7 @@ Resources:
               logger.error(err)
               responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
               responseData["message"] += err
-              
-            # smallCCInstanceSize
-            try:
-              ALLOWED_SIZES = {
-                "small": ["t3.medium", "m5.large", "c5.large", "c5a.large"]
-              }
-              ccInstanceSize = parameters.get("ZscalerCcInstanceSize")
-              awsEc2InstanceType = parameters.get("ZscalerAwsEc2InstanceType")
-              if awsEc2InstanceType not in ALLOWED_SIZES.get(ccInstanceSize):
-                responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
-                responseData["message"] += f"\naws Ec2 Insance Type {awsEc2InstanceType} is not valid for CcInstanceSize {ccInstanceSize}, allowed values are {ALLOWED_SIZES.get('ccInstanceSize')}."
-            except Exception as e:
-              err = f"Validating instance sizes errored: {e}"
-              logger.error(err)
-              responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
-              responseData["message"] += err
-              
+                                        
             # MgmtIntfSecurityGroupIsValid
             try:
               mgmtIntfSecurityGroup = parameters.get("ZscalerCcMgmtIntfSecurityGroup")
