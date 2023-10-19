@@ -9,14 +9,21 @@ Metadata:
         Parameters:
           - Ec2Instances
           - Ec2InstancesHttpProbePort
-          - EnableCrossZoneLB
+          - GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy
+          - GwlbFlowStickiness
+          - GwlbCrossZoneLbEnabled
+
     ParameterLabels:
       Ec2Instances:
-        default: ZS CC instance IDs
+        default: Cloud Connector Instance IDs
       Ec2InstancesHttpProbePort:
-        default: ZS CC instance Http Probe Port
-      EnableCrossZoneLB:
-        default: 'ZS CC GWLB, enable cross zone forwarding'
+        default: Cloud Connector Instance HTTP Probe Port
+      GwlbCrossZoneLbEnabled:
+        default: Enable Cross-Zone Load Balancing
+      GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy:
+        default: GWLB Target Failover Rebalance Strategy
+      GwlbFlowStickiness:
+        default: GWLB Flow Stickiness Strategy
   cfn-lint:
     config:
       ignore_checks:
@@ -32,23 +39,48 @@ Parameters:
   Ec2Instances:
     Type: List<AWS::EC2::Instance::Id>
     Description: >-
-      AWS EC2 Instance IDs for ZS Cloud Connectors that are to be added to the
-      GWLB
+      AWS EC2 Instance IDs for Zscaler Cloud Connectors to add to the GWLB Target Group
   Ec2InstancesHttpProbePort:
     Type: String
     AllowedPattern: >-
       ^(80|102[4-9]|10[3-9]\d|1[1-9]\d{2}|[2-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$
     ConstraintDescription: 'The HTTP probe port''s allowed values are [80, 1024-65535]'
     Description: >-
-      The Http Probe Healthcheck Port for ZS Cloud Connectors. Allowed values
-      are [80, 1024-65535]
-  EnableCrossZoneLB:
+      The HTTP Health Check Probe Port. Allowed values are [80, 1024-65535]. This MUST match what was configured in the deployment stack.
+  GwlbCrossZoneLbEnabled:
     Type: String
-    AllowedValues:
-      - false
-      - true
+    Description: "Select \"true\" to enable cross-zone load balancing (default), else \"false\" to disable"
     Default: true
-    Description: Enable Cross Zone GWLB operation
+    AllowedValues:
+      - true
+      - false
+  GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy:
+    Type: String
+    Description: "Select \"rebalance\" to enable rebalance failover on target deregistration or if target becomes unhealthy"
+    AllowedValues:
+      - no_rebalance
+      - rebalance
+    Default: rebalance
+  GwlbFlowStickiness:
+    Type: String
+    Description: >-
+      Select 2-tuple for source_ip_dest_ip, 3-tuple for source_ip_dest_ip_proto flow stickiness
+    Default: "5-tuple"
+    AllowedValues:
+      - "5-tuple"
+      - "2-tuple"
+      - "3-tuple"
+
+Conditions:
+  EnableFlowStickiness: !Not
+    - !Equals
+        - !Ref GwlbFlowStickiness
+        - "5-tuple"
+  Use3TupleFlowStickiness: !Equals
+    - !Ref GwlbFlowStickiness
+    - "3-tuple"
+
+
 Resources:
   ZSCCGWLBTargetGroup:
     Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
@@ -56,6 +88,10 @@ Resources:
       HealthCheckPath: /?cchealth
       HealthCheckPort: !Ref Ec2InstancesHttpProbePort
       HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+
       Name: !Join
         - "-"
         - - ZSCCGWLBTargetGroup
@@ -63,6 +99,24 @@ Resources:
       Port: 6081
       Protocol: GENEVE
       TargetType: ip
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 0
+        - Key: target_failover.on_deregistration
+          Value: !Ref GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy
+        - Key: target_failover.on_unhealthy
+          Value: !Ref GwlbTargetGroupRebalanceOnDeregistrationOrUnhealthy
+        - Key: stickiness.enabled
+          Value: !If
+            - EnableFlowStickiness
+            - true
+            - false
+        - Key: stickiness.type
+          Value: !If
+            - Use3TupleFlowStickiness
+            - "source_ip_dest_ip_proto"
+            - "source_ip_dest_ip"
+
   ZSCCGWLBListener:
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
     Properties:
@@ -90,7 +144,7 @@ Resources:
     Properties:
       LoadBalancerAttributes:
         - Key: load_balancing.cross_zone.enabled
-          Value: !Ref EnableCrossZoneLB
+          Value: !Ref GwlbCrossZoneLbEnabled
       Name: !Join
         - "-"
         - - ZSCCGWLB
@@ -108,4 +162,4 @@ Outputs:
     Value: !Ref ZSCCVPCEP
   CloudConnectorGWLBTemplateVersion:
     Description: Cloud Connector Template Version
-    Value: 0.1.3
+    Value: 1.0.0

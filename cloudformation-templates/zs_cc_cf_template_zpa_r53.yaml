@@ -83,7 +83,7 @@ Parameters:
     Default: ZPA
     Type: String
   ApplicationDomainNames:
-    Description: Comma Seperated Application Domain Names(Max 4096 characters)
+    Description: Comma Seperated Application Domain Names (Max 4096 characters)
     Type: CommaDelimitedList
 
 Rules:
@@ -271,4 +271,4 @@ Outputs:
       - ResolverEndpointId
   CloudConnectorZPATemplateVersion:
     Description: Cloud Connector ZPA Template Version
-    Value: 0.1.3
+    Value: 1.0.0

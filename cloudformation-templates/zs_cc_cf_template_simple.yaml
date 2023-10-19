@@ -6,40 +6,45 @@ Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
       - Label:
-          default: Network configuration
+          default: Network Configuration
         Parameters:
           - VPCID
           - AvailabilityZone
           - CCSubnetID
       - Label:
-          default: Zscaler Cloud Connector configuration
+          default: Zscaler Cloud Connector Configuration
         Parameters:
           - ZscalerOSAMI
           - KeyPairName
           - CCInstanceType
           - InstanceType
           - CloudConnectorProvUrl
-          - SecretManagerSecretName
+          - ZscalerSecretManagerSecretName
           - HttpProbePort
+          - ZscalerEBSEncryptionEnabled
     ParameterLabels:
       InstanceType:
-        default: Zscaler Cloud Connector VM AWS EC2 instance type
+        default: Zscaler Cloud Connector AWS EC2 Instance Type
       CCInstanceType:
-        default: Zscaler Cloud Connector instance type
+        default: Zscaler Cloud Connector Instance Size
       KeyPairName:
-        default: Zscaler Cloud Connector instance key pair
+        default: Zscaler Cloud Connector Instance Key Pair
       ZscalerOSAMI:
         default: Zscaler product
       VPCID:
-        default: VPC ID
+        default: Choose a VPC ID to Deploy Cloud Connector
+      AvailabilityZone:
+        default: Choose an Availability Zone to Deploy Cloud Connector
       CCSubnetID:
-        default: Subnet ID of Zscaler Cloud Connector
+        default: Choose a Subnet ID to Deploy Cloud Connector
       CloudConnectorProvUrl:
         default: Cloud Connector Provisioning URL
-      SecretManagerSecretName:
-        default: Secrets Manager Secret Name (Optional)
+      ZscalerSecretManagerSecretName:
+        default: Secrets Manager Secret Name
       HttpProbePort:
-        default: HTTP Monitor Probe Port (Optional)
+        default: HTTP Monitor Probe Port
+      ZscalerEBSEncryptionEnabled:
+        default: EBS Encryption Enabled
   cfn-lint:
     config:
       ignore_checks:
@@ -50,6 +55,7 @@ Metadata:
         - E2507
         - E2522
         - E6002
+        - E8002
 
 
 Transform:
@@ -61,15 +67,17 @@ Parameters:
   InstanceType:
     AllowedValues:
       - t3.medium
-      - c5.large
+      - t3a.medium
       - c5a.large
-      - m5.large
-      - m5.2xlarge
-      - c5.2xlarge
-      - m5.4xlarge
+      - m5n.large
+      - m6i.large
+      - c6i.large
+      - m5n.4xlarge
       - c5.4xlarge
-    Default: m5.large
-    Description: Amazon EC2 instance type for the ZS instances.
+      - m6i.4xlarge
+      - c6i.4xlarge
+    Default: m6i.large
+    Description: The AWS EC2 instance type for the Cloud Connector instances
     Type: String
   CCInstanceType:
     AllowedValues:
@@ -77,28 +85,28 @@ Parameters:
       - medium
       - large
     Default: small
-    Description: ZS Cloud Connector Instance type
+    Description: "The instance size for Zscaler Cloud Connector (small)"
     Type: String    
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName
-    Description: EC2 Instance Access KeyPair
+    Description: EC2 Instance Access Key Pair
   VPCID:
-    Description: 'ID of the VPC (e.g., vpc-0343606e).'
+    Description: 'The VPC ID where you want to deploy your Cloud Connector Instances'
     Type: 'AWS::EC2::VPC::Id'
   AvailabilityZone:
-    Description: Availability Zone of the subnets
+    Description: Choose an Availability Zone to Deploy Cloud Connector
     Type: 'AWS::EC2::AvailabilityZone::Name'
   CCSubnetID:
-    Description: ID of the Zscaler CC Subnet
+    Description: Must exist in the VPC and availability zone selected in the previous steps
     Type: 'AWS::EC2::Subnet::Id'
   CloudConnectorProvUrl:
     AllowedPattern: '(admin|connector).zs.*.net(/ec)?/w?api/v1/provUrl\?name=[\w-_]+'
     ConstraintDescription: >-
       Please input the Cloud Connector Provisioning Template URL to use from
       your Zscaler Cloud Connector Portal
-    Description: Cloud Connector Prov URL
+    Description: Cloud Connector Provisioning URL
     Type: String
-  SecretManagerSecretName:
+  ZscalerSecretManagerSecretName:
     Type: String
     Default: 'ZS/CC/credentials'
     Description: >-
@@ -107,11 +115,19 @@ Parameters:
     Type: String
     AllowedPattern: '^$|^(80|102[4-9]|10[3-9]\d|1[1-9]\d{2}|[2-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$'
     ConstraintDescription: >-
-      When specified, the HTTP probe port's allowed values are [80, 1024-65535]
-    Description: HTTP Monitor probe port to listen on for monitoring probes
+          The HTTP probe port's allowed values are [80, 1024-65535]
+    Description: "HTTP Monitor probe port to listen on for monitoring probes"
+    Default: 50000
+  ZscalerEBSEncryptionEnabled:
+        Type: String
+        Description: "Select \"true\" to enable EBS encryption (default), else \"false\""
+        Default: true
+        AllowedValues:
+          - true
+          - false
 
 Conditions:
-  SecretsManagerNameNotEmpty: !Not [!Equals [!Ref SecretManagerSecretName, '']]
+  SecretsManagerNameNotEmpty: !Not [!Equals [!Ref ZscalerSecretManagerSecretName, '']]
   HttpProbePortNotEmpty: !Not [!Equals [!Ref HttpProbePort, '']]
   CreateCCMediumServiceXfaces: !Or
     - !Equals [!Ref CCInstanceType, "medium"]
@@ -142,16 +158,18 @@ Rules:
       - Assert:
           'Fn::Contains':
             - - t3.medium
-              - c5.large
+              - t3a.medium
               - c5a.large
-              - m5.large
-              - m5.2xlarge
-              - c5.2xlarge
-              - m5.4xlarge
+              - m5n.large
+              - m6i.large
+              - c6i.large
+              - m5n.4xlarge
               - c5.4xlarge
+              - m6i.4xlarge
+              - c6i.4xlarge
             - !Ref InstanceType
         AssertDescription: >-
-          For small CCInstanceType, the Instance type must be one of t3.medium, c5.large, c5a.large, m5.large, m5.2xlarge, c5.2xlarge, m5.4xlarge, c5.4xlarge
+          For small CCInstanceType, the Instance type must be one of t3.medium, c5a.large, m5n.large, m6i.large, c6i.large, m5n.4xlarge, c5.4xlarge, m6i.4xlarge, c6i.4xlarge
   mediumCCInstanceType:
     RuleCondition: !Equals
       - !Ref CCInstanceType
@@ -159,13 +177,13 @@ Rules:
     Assertions:
       - Assert:
           'Fn::Contains':
-            - - m5.2xlarge
-              - c5.2xlarge
-              - m5.4xlarge
+            - - m5n.4xlarge
               - c5.4xlarge
+              - m6i.4xlarge
+              - c6i.4xlarge
             - !Ref InstanceType
         AssertDescription: >-
-          For medium CCInstanceType, the Instance type must be one of m5.2xlarge, c5.2xlarge, m5.4xlarge, c5.4xlarge
+          For medium CCInstanceType, the Instance type must be one of c5.4xlarge, m5n.4xlarge, m6i.4xlarge, c6i.4xlarge
   largeCCInstanceType:
     RuleCondition: !Equals
       - !Ref CCInstanceType
@@ -173,11 +191,13 @@ Rules:
     Assertions:
       - Assert:
           'Fn::Contains':
-            - - m5.4xlarge
+            - - m5n.4xlarge
               - c5.4xlarge
+              - m6i.4xlarge
+              - c6i.4xlarge
             - !Ref InstanceType
         AssertDescription: >-
-          For large CCInstanceType, the Instance type must be one of m5.4xlarge, c5.4xlarge
+          For large CCInstanceType, the Instance type must be one of c5.4xlarge, m5n.4xlarge, m6i.4xlarge, c6i.4xlarge
   CCProvUrlNotEmpty:
     Assertions:
       - Assert: !Not
@@ -212,20 +232,32 @@ Resources:
           FromPort: '0'
           ToPort: '65535'
           CidrIp: 0.0.0.0/0
+  MgmtXface:
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      SubnetId: !Ref CCSubnetID
+      Description: Interface for management traffic
+      GroupSet:
+        - !Ref MgmtSecurityGroup
+      SourceDestCheck: 'true'
+      Tags:
+        - Key: Network
+          Value: !Sub '${AWS::StackName}-Management'
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-CloudConnectorMgmtIF'
   ServiceXface:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
-      SecondaryPrivateIpAddressCount: 1
-      Description: Interface for service traffic
+      Description: Nexthop interface for traffic forwarding
       GroupSet:
         - !Ref ServiceSecurityGroup
       SourceDestCheck: 'false'
       Tags:
         - Key: Network
-          Value: !Sub '${AWS::StackName}-Service'
+          Value: !Sub '${AWS::StackName}-ForwardingNexthop'
         - Key: Name
-          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF'
+          Value: !Sub '${AWS::StackName}-CloudConnectorFwdNHIF'
   ServiceXface2:
     Condition: CreateCCMediumServiceXfaces
     Type: 'AWS::EC2::NetworkInterface'
@@ -233,7 +265,7 @@ Resources:
       SubnetId: !Ref CCSubnetID
       Description: !Join
         - " "
-        - - Interface for service traffic for CC
+        - - Interface for service 1 traffic for CC
           - !Ref CCInstanceType
           - Instance Type
       GroupSet:
@@ -241,9 +273,9 @@ Resources:
       SourceDestCheck: 'false'
       Tags:
         - Key: Network
-          Value: !Sub '${AWS::StackName}-Service2'
+          Value: !Sub '${AWS::StackName}-Service1'
         - Key: Name
-          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF2'
+          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF1'
   ServiceXface3:
     Condition: CreateCCMediumServiceXfaces
     Type: 'AWS::EC2::NetworkInterface'
@@ -251,7 +283,7 @@ Resources:
       SubnetId: !Ref CCSubnetID
       Description: !Join
         - " "
-        - - Interface for service traffic for CC
+        - - Interface for service 2 traffic for CC
           - !Ref CCInstanceType
           - Instance Type
       GroupSet:
@@ -259,17 +291,40 @@ Resources:
       SourceDestCheck: 'false'
       Tags:
         - Key: Network
-          Value: !Sub '${AWS::StackName}-Servic3'
+          Value: !Sub '${AWS::StackName}-Servic2'
         - Key: Name
-          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF3'
+          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF2'
   ServiceXface4:
+    Condition: CreateCCMediumServiceXfaces
+    Type: 'AWS::EC2::NetworkInterface'
+    Properties:
+      SubnetId: !Ref CCSubnetID
+      Description: !If
+        - CreateCCLargeServiceXfaces
+        - !Join [' ', ['Interface for service 3 traffic for CC', !Ref CCInstanceType, 'Instance Type']]
+        - 'Interface for internal lb vip'
+      GroupSet:
+        - !Ref ServiceSecurityGroup
+      SourceDestCheck: 'false'
+      Tags:
+        - Key: Network
+          Value: !If
+            - CreateCCLargeServiceXfaces
+            - !Sub '${AWS::StackName}-Service3'
+            - !Sub '${AWS::StackName}-InternalLbVip'
+        - Key: Name
+          Value: !If
+            - CreateCCLargeServiceXfaces
+            - !Sub '${AWS::StackName}-CloudConnectorSrvcIF3'
+            - !Sub '${AWS::StackName}-CloudConnectorInternalLbVip'
+  ServiceXface5:
     Condition: CreateCCLargeServiceXfaces
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
       SubnetId: !Ref CCSubnetID
       Description: !Join
         - " "
-        - - Interface for service traffic for CC
+        - - Interface for internal LB VIP
           - !Ref CCInstanceType
           - Instance Type
       GroupSet:
@@ -277,9 +332,9 @@ Resources:
       SourceDestCheck: 'false'
       Tags:
         - Key: Network
-          Value: !Sub '${AWS::StackName}-Service4'
+          Value: !Sub '${AWS::StackName}-InternalLbVip'
         - Key: Name
-          Value: !Sub '${AWS::StackName}-CloudConnectorSrvcIF4'
+          Value: !Sub '${AWS::StackName}-CloudConnectorInternalLbVip'
 
   CcGetSecretsPolicy:
     Type: AWS::IAM::ManagedPolicy
@@ -309,19 +364,6 @@ Resources:
             Resource:
               - '*'
 
-  CcCallHomePolicy:
-    Type: AWS::IAM::ManagedPolicy
-    Properties: 
-      Description: Zscaler Cloud Connector Call Home Policy
-      PolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Action:
-              - 'sts:AssumeRole'
-            Resource:
-              - 'arn:aws:iam::223544365242:role/callhome-delegation-role'
-
   CcIamRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -339,7 +381,6 @@ Resources:
       ManagedPolicyArns:
         - !Ref CcGetSecretsPolicy
         - !Ref CcSsmControlPolicy
-        - !Ref CcCallHomePolicy
 
 
   CCHostProfile:
@@ -359,15 +400,18 @@ Resources:
     Type: 'AWS::EC2::Instance'
     Properties:
       KeyName: !Ref KeyPairName
-      AvailabilityZone: !Ref AvailabilityZone
-      SubnetId: !Ref CCSubnetID
-      SecurityGroupIds:
-        - !Ref MgmtSecurityGroup
       IamInstanceProfile: !Ref CCHostProfile
       InstanceType: !Ref InstanceType
       LaunchTemplate:
         LaunchTemplateId: !Ref CCImdsv2LaunchTemplate
         Version: !GetAtt CCImdsv2LaunchTemplate.LatestVersionNumber
+      EbsOptimized: "true"
+      BlockDeviceMappings: 
+      - DeviceName: "/dev/sda1"
+        Ebs: 
+          VolumeType: "gp3"
+          DeleteOnTermination: "true"
+          Encrypted: !Ref ZscalerEBSEncryptionEnabled
       Tags:
         - Key: Role
           Value: !Sub '${AWS::StackName}-ZSCCInstance'
@@ -379,15 +423,18 @@ Resources:
 
           - - '[ZSCALER]'
             - !Join ['=', [ 'CC_URL', !Ref CloudConnectorProvUrl]]
-            - !Join ['=', ['SECRET_NAME', !If [SecretsManagerNameNotEmpty, !Ref SecretManagerSecretName, 'ZS/CC/Credentials']]]
+            - !Join ['=', ['SECRET_NAME', !If [SecretsManagerNameNotEmpty, !Ref ZscalerSecretManagerSecretName, 'ZS/CC/credentials']]]
             - !Join ['=', ['HTTP_PROBE_PORT', !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '']]]
-  SrvcNetworkInterfaceAttachment:
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref 'ServiceXface'
+          DeviceIndex: '0'
+  MgmtNetworkInterfaceAttachment:
     Type: 'AWS::EC2::NetworkInterfaceAttachment'
     Properties:
       InstanceId:
         Ref: Ec2Instance
       NetworkInterfaceId:
-        Ref: ServiceXface
+        Ref: MgmtXface
       DeviceIndex: 1
       DeleteOnTermination: false
   SrvcNetworkInterface2Attachment:
@@ -411,7 +458,7 @@ Resources:
       DeviceIndex: 3
       DeleteOnTermination: false
   SrvcNetworkInterface4Attachment:
-    Condition: CreateCCLargeServiceXfaces
+    Condition: CreateCCMediumServiceXfaces
     Type: 'AWS::EC2::NetworkInterfaceAttachment'
     Properties:
       InstanceId:
@@ -420,16 +467,33 @@ Resources:
         Ref: ServiceXface4
       DeviceIndex: 4
       DeleteOnTermination: false
+  SrvcNetworkInterface5Attachment:
+    Condition: CreateCCLargeServiceXfaces
+    Type: 'AWS::EC2::NetworkInterfaceAttachment'
+    Properties:
+      InstanceId:
+        Ref: Ec2Instance
+      NetworkInterfaceId:
+        Ref: ServiceXface5
+      DeviceIndex: 5
+      DeleteOnTermination: false
 Outputs:
-  MgmtPrivateIP:
-    Description: Zscaler Cloud Connector Instance Mgmt Private IP
+  FwdPrivateIP:
+    Description: Zscaler Cloud Connector Instance Forwarding Private IP
     Value: !GetAtt
       - Ec2Instance
       - PrivateIp
     Export:
+      Name: !Sub '${AWS::StackName}-FwdPrivateIP'
+  MgmtPrivateIP:
+    Description: Zscaler Cloud Connector Instance Mgmt Private IP
+    Value: !GetAtt
+      - MgmtXface
+      - PrimaryPrivateIpAddress
+    Export:
       Name: !Sub '${AWS::StackName}-MgmtPrivateIP'
   ServiceEni:
-    Description: Zscaler Cloud Connector Instance Service Eni
+    Description: Zscaler Cloud Connector Instance Service ENI for traffic forwarding
     Value: !Ref ServiceXface
     Export:
       Name: !Sub '${AWS::StackName}-ServiceEni'
@@ -437,4 +501,4 @@ Outputs:
     Description: AMI ID In use in the Zscaler Cloud Connector VM
   CloudConnectorTemplateVersion:
     Description: Cloud Connector Template Version
-    Value: 0.1.3
+    Value: 1.0.0

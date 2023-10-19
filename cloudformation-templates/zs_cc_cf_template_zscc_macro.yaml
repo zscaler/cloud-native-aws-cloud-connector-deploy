@@ -82,13 +82,15 @@ Resources:
           import copy
           import collections
           import re
-          import copy 
+          import copy
+          import pprint
 
           logger = logging.getLogger()
           logger.setLevel(logging.INFO)
 
           # ONE TIME INITS
           EC2_RESOURCE = boto3.resource('ec2')
+          EC2_CLIENT = boto3.client('ec2')
           CCINSTANCETYPE2INTS = {1: "Small", 2: "Medium", 3: "Large"}
           IPV4PATTERN = re.compile("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$")
 
@@ -108,10 +110,9 @@ Resources:
                   logger.info(f"Instance: {instance_id}, Type: {instance_type}")
                   if instance_type not in InstanceTypes:
                     InstanceTypes.append(instance_type)
-                  # Only works for static mgmt NIC at index 0
-                  num_srvc_enis = [1, 2][len(instance.network_interfaces_attribute) > 2]
+                  # Only works for static service NIC at index 0
                   enis = [e for e in
-                  instance.network_interfaces_attribute if e.get("Attachment").get("DeviceIndex") >= num_srvc_enis]
+                    instance.network_interfaces_attribute if e.get("Attachment").get("DeviceIndex") == 0]
                   # Let's keep track of how many enis this instance has
                   if len(enis) not in InstanceNumSrvcInts:
                     InstanceNumSrvcInts.append(len(enis))
@@ -215,26 +216,30 @@ Resources:
 
               # get the ImageCode from the template
               try:
-                ImageCode = event["fragment"]["Mappings"]["Product2Code"]["CloudConnector"]["Code"]
-                logger.info(ImageCode)
-            
+                
+                if event.get("templateParameterValues").get("ZscalerOsAmi"):
+                  ImageId = event.get("templateParameterValues").get("ZscalerOsAmi")
+                else:
+                  ImageCode = event["fragment"]["Mappings"]["Product2Code"]["CloudConnector"]["Code"]
+                  logger.debug(f"Image Code: {ImageCode}")
+                  # use the ImageCode to get ami id
+                  filters = [{"Name": "product-code", "Values":[ImageCode]}]
+                  response = sorted(EC2_CLIENT.describe_images(Owners=["aws-marketplace"], Filters=filters).get("Images"), key=lambda x:  x.get("CreationDate"))
+                  ImageId = response[-1].get("ImageId")
+                
               except Exception as e:
-                logger.info(e)
+                err = f"Retrieve AMI ID errored: {e}"
+                logger.info(err)
                 responseData = {"status": "failed", "errorMessage": f'{e}'}
                 return responseData
 
-              # use the ImageCode to get ami id
+              # Retrieve secrets manager ARN
               try:
-                  
-                client = boto3.client('ec2')
-                filters = [{"Name": "product-code", "Values":[ImageCode]}]
-                response = sorted(client.describe_images(Owners=["aws-marketplace"], Filters=filters).get("Images"), key=lambda x:  x.get("CreationDate"))
-                
-                SecretManagerSecretName = event["templateParameterValues"].get("SecretManagerSecretName", "ZS/CC/Credentials")
+                SecretManagerSecretName = event["templateParameterValues"].get("ZscalerSecretManagerSecretName", "ZS/CC/credentials")
                 secretsmanager_client = boto3.client('secretsmanager')
                 secret = secretsmanager_client.get_secret_value(SecretId=SecretManagerSecretName)
                 
-                responseData["ImageId"]= response[-1].get("ImageId")
+                responseData["ImageId"] = ImageId
                 responseData["SecretArn"] = secret.get("ARN")
                 
                 logger.info('Retrieved AMI {0}'.format(responseData.get('ImageId')))
@@ -243,7 +248,8 @@ Resources:
                 
                 return responseData
 
-              except Exception as err:
+              except Exception as e:
+                err = f"Retriving Secret Manager ARN failed: {e}"
                 logger.error(err)
                 responseData = {"status": "failed", "errorMessage": f'{err}'}
                 return responseData
@@ -466,19 +472,329 @@ Resources:
             
             return resp
 
+          def is_valid_sg(sgid):
+            ## Validate Security Groups
+            SEC_GROUP_REGEX = r"^sg-[0-9a-f]+$"
+            # Regex first
+            if not re.match(SEC_GROUP_REGEX, sgid):
+              return False
+            # Now send it to validate, this is not possible if user doesnt have permissions
+            # securityGroups = EC2_CLIENT.describe_security_groups(GroupIds=[sgid]).get("SecurityGroups")
+            # if len(securityGroups) != 1 or securityGroups[0].get("GroupId") != sgid:
+            #   return False
+            return True
+            
+          # def is_valid_iam_role_arn(arn):
+          #   ## Validate IAM Role, this is not possible if user doesnt have permissions
+          #   iam_role = EC2_RESOURCE.describe_iam_roles()
+
+          def validate_inputs_asg(event, responseData):
+            parameters = event.get("templateParameterValues")
+            template = event.get("fragment")
+            resources = template.get("Resources")
+            outputs = template.get("Outputs")
+            
+            responseData = {
+              "status": "success", 
+              "message": "",
+              "fragment": template
+            }
+            
+            # Subnets In VPC and AZs- From CcSubnetIds and VpcEpSubnetIds
+            subnetIds = list()
+            subnetsByAz = collections.defaultdict(list)
+            vpc = parameters.get("NetworkVpcId")
+            availability_zones = parameters.get("NetworkAvailabilityZones")
+            ccSubnetIds = parameters.get("NetworkCcSubnetIds", list())
+            vpcEpSubnetIds = parameters.get("GwlbVpcEpSubnetIds", list())
+            
+            # Describe these Subnets
+            try:
+              allSubnetIds = ccSubnetIds+vpcEpSubnetIds if len(vpcEpSubnetIds[0]) > 0 else ccSubnetIds
+              ec2_subnets = EC2_CLIENT.describe_subnets(SubnetIds=allSubnetIds)
+              for ec2_subnet in ec2_subnets.get("Subnets"):
+                subnetId = ec2_subnet.get("SubnetId")
+                availability_zone = ec2_subnet.get('AvailabilityZone')
+                if ec2_subnet.get("VpcId") != vpc:
+                  responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+                  responseData["message"] += f"\nSubnet {ec2_subnet.get('SubnetId')} is not part of Vpc {vpc}."
+                if ec2_subnet.get("AvailabilityZone") not in availability_zones:
+                  responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+                  responseData["message"] += f"\nSubnet {subnetId}'s availability zone {availability_zone} is not part of given zones {availability_zones}."
+                if subnetId not in subnetIds:
+                  subnetIds.append(subnetId)
+                  # We only want to add to subnetsByAz if we dont have vpcEpSubnets given or if 
+                  # the subnet is part of vpcEpSubnets
+                  if not len(vpcEpSubnetIds) or vpcEpSubnetIds[0] == '' or subnetId in vpcEpSubnetIds:
+                    subnetsByAz[re.sub("\-", "", availability_zone)].append(subnetId)
+              responseData["subnetIds"]= subnetIds
+              responseData["subnetsByAz"] = subnetsByAz
+            except Exception as e:
+              err = f"\nValidating subnets errored: {e}"
+              logger.error(err)
+              responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+              responseData["message"] += err
+              
+            # smallCCInstanceSize
+            try:
+              ALLOWED_SIZES = {
+                "small": ["t3.medium", "m5.large", "c5.large", "c5a.large"]
+              }
+              ccInstanceSize = parameters.get("ZscalerCcInstanceSize")
+              awsEc2InstanceType = parameters.get("ZscalerAwsEc2InstanceType")
+              if awsEc2InstanceType not in ALLOWED_SIZES.get(ccInstanceSize):
+                responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+                responseData["message"] += f"\naws Ec2 Insance Type {awsEc2InstanceType} is not valid for CcInstanceSize {ccInstanceSize}, allowed values are {ALLOWED_SIZES.get('ccInstanceSize')}."
+            except Exception as e:
+              err = f"Validating instance sizes errored: {e}"
+              logger.error(err)
+              responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+              responseData["message"] += err
+              
+            # MgmtIntfSecurityGroupIsValid
+            try:
+              mgmtIntfSecurityGroup = parameters.get("ZscalerCcMgmtIntfSecurityGroup")
+              if mgmtIntfSecurityGroup != "" and not is_valid_sg(sgid=mgmtIntfSecurityGroup):
+                  responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+                  responseData["message"] += f"\nMgmt Intf Security Group specified {mgmtIntfSecurityGroup} should be a single valid AWS security group Id in the given region, please remove extraneous spaces, commas etc."
+            except Exception as e:
+              err = f"Validating Mgmt Security Group errored: {e}"
+              logger.error(err)
+              responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+              responseData["message"] += err
+                
+            # SrvcIntfSecurityGroupIsValid
+            try:
+              srvcIntfSecurityGroup = parameters.get("ZscalerCcSrvcIntfSecurityGroup")
+              if srvcIntfSecurityGroup != "" and not is_valid_sg(sgid=srvcIntfSecurityGroup):
+                  responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+                  responseData["message"] += f"\nMgmt Intf Security Group specified {srvcIntfSecurityGroup} should be a single valid AWS security group Id in the given region, please remove extraneous spaces, commas etc."
+            except Exception as e:
+              err = f"Validating Srvc Security Group errored: {e}"
+              logger.error(err)
+              responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+              responseData["message"] += err
+            
+            # Each AZ specified has at least one subnet to put into the GWLB, VPC ep subnets
+            # override the CC Subnets. One subnet in each AZ is picked
+            try:
+              for az in availability_zones:
+                if len(subnetsByAz.get(re.sub("\-", "", az), [])) == 0:
+                  responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+                  responseData["message"] += f"\nAvailability Zone {az} does not have any subnets specified in Vpc Endpoint Subnets if specified or in CloudConnector Subnets"
+            except Exception as e:
+              err = f"Validating Availability Zones errored: {e}"
+              logger.error(err)
+              responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+              responseData["message"] += err
+            
+            # If given, check if IAM Role exists if possible
+            ## We wont do this because it requires user's ability to list roles etc
+            ## which has great potential to break the script
+            
+            # If given, validate VpcEpServicePrincipals exist?
+            
+            if responseData.get("status") == "success":
+              responseData["message"] = "All Inputs Validated successfully!"
+            else:
+              responseData["errorMessage"] = responseData["message"]
+              
+            logger.info(f"Validating Input: {responseData.get('status')}, Message: {responseData.get('message')}, Error: {responseData.get('errorMessage')}")
+            
+            return responseData
+
+          def retrieve_data_asg(event, responseData):
+            parameters = event.get("templateParameterValues")
+            template = event.get("fragment")
+            resources = template.get("Resources")
+            outputs = template.get("Outputs")
+            
+            responseData = {
+              "status": "success", 
+              "message": "",
+              "fragment": template
+            }
+            try:
+              ami_and_secret_data = retrive_ami_id_and_secret_arn(event)
+              responseData.update(ami_and_secret_data)
+            except Exception as e:
+              err = f"Retriving data failed: {e}"
+              logger.error(err)
+              responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+              responseData["message"] += err
+            
+            if responseData.get("status") == "success":
+              responseData["message"] = "All Data Retrieved successfully!"
+            else:
+              responseData["errorMessage"] = responseData["message"]
+              
+            logger.info(f"Retrieve Data: {responseData.get('status')}, Message: {responseData.get('message')}, Error: {responseData.get('errorMessage')}")
+            
+            
+            return responseData
+
+          def add_required_asg_resources(event, responseData):
+            parameters = event.get("templateParameterValues")
+            template = event.get("fragment")
+            resources = template.get("Resources")
+            outputs = template.get("Outputs")
+            
+            subnetsByAz = responseData.get("subnetsByAz")
+            logger.info(f"Subnets By AZ: {subnetsByAz}")
+            uniqueCcSubnetIds = list(set(parameters.get("NetworkCcSubnetIds")))
+            
+            # Launch template Image Id
+            try:
+              resources["CcLaunchTemplate"]["Properties"]["LaunchTemplateData"]["ImageId"] = responseData["ImageId"]
+              outputs["ImageIdInUse"]["Value"] = responseData["ImageId"]
+            except Exception as e:
+              err = f"Adding ImageId to use failed: {e}"
+              logger.error(err)
+              responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+              responseData["message"] += err
+            
+            # add SecretArn to CcIamRole Policy
+            try:
+              # This only works if the secretmanager policy is the first policy
+              # first fetch the policy document
+              policy_doc = resources["CcGetSecretsPolicy"]["Properties"]["PolicyDocument"]
+              policy_doc_lambda = resources["CcGetSecretsPolicyForLambda"]["Properties"]["PolicyDocument"]
+              
+              # update the document
+              policy_doc["Statement"][0]["Resource"] = responseData["SecretArn"]
+              resources["CcGetSecretsPolicy"]["Properties"]["PolicyDocument"] = policy_doc
+              policy_doc_lambda["Statement"][0]["Resource"] = responseData["SecretArn"]
+              resources["CcGetSecretsPolicyForLambda"]["Properties"]["PolicyDocument"] = policy_doc_lambda
+            except Exception as e:
+              err = f"Adding SecretManger  to use failed: {e}"
+              logger.error(err)
+              responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+              responseData["message"] += err
+            
+            # Asg Vpc Zone Identifier
+            try:
+              CcAutoScalingGroup = resources.get("CcAutoScalingGroup")
+              CcAutoScalingGroup.get("Properties")["VPCZoneIdentifier"] = uniqueCcSubnetIds
+              # One asg per az
+              CcAutoScalingGroupTemplate = resources.pop("CcAutoScalingGroup")
+              CcAsgAutoScalingPolicyTemplate = resources.pop("CcAsgAutoScalingPolicy")
+              CcAsgWarmPoolTemplate = resources.pop("CcAsgWarmPool")
+              CcAsgLambdaFunction = resources.get("CcAsgLambdaFunction")
+              CcAsgEventBridgeInstanceTerminateLifecycleActionRule = resources.get("CcAsgEventBridgeInstanceTerminateLifecycleActionRule")
+              asg_names = list()
+              for az, subnets in subnetsByAz.items():
+                asg_name = f"CcAutoScalingGroupFor{az}"
+                asg_names.append(f"${{{asg_name}}}")
+                asg_policy_name = f"CcAutoScalingGroupScalingPolicyFor{az}"
+                asg_warmpool_name = f"CcAutoScalingGroupWarmPoolFor{az}"
+                asg_resource = copy.deepcopy(CcAutoScalingGroupTemplate)
+                asg_policy_resource = copy.deepcopy(CcAsgAutoScalingPolicyTemplate)
+                asg_warmpool_resource = copy.deepcopy(CcAsgWarmPoolTemplate)
+                asg_resource["Properties"]["AutoScalingGroupName"]["Fn::Sub"] = asg_resource["Properties"]["AutoScalingGroupName"]["Fn::Sub"] + f"For{az}"
+                asg_policy_resource["Properties"]["AutoScalingGroupName"]["Ref"] = asg_name
+                asg_policy_resource["Properties"]["TargetTrackingConfiguration"]["CustomizedMetricSpecification"]["Dimensions"][0]["Value"]["Ref"] = asg_name
+                asg_warmpool_resource["Properties"]["AutoScalingGroupName"]["Ref"] = asg_name
+                for lch in asg_resource["Properties"]["LifecycleHookSpecificationList"]:
+                  lch["LifecycleHookName"]["Fn::Sub"] = lch["LifecycleHookName"]["Fn::Sub"] + f"For{az}"
+                resources[asg_name] = asg_resource
+                resources[asg_policy_name] = asg_policy_resource
+                resources[asg_warmpool_name] = asg_warmpool_resource
+              CcAsgLambdaFunction["Properties"]["Environment"]["Variables"]["ASG_NAMES"]["Fn::Sub"] = json.dumps(asg_names)
+              CcAsgEventBridgeInstanceTerminateLifecycleActionRuleFnSub = json.loads(CcAsgEventBridgeInstanceTerminateLifecycleActionRule["Properties"]["EventPattern"]["Fn::Sub"])
+              CcAsgEventBridgeInstanceTerminateLifecycleActionRuleFnSub["detail"]["AutoScalingGroupName"] = asg_names
+              CcAsgEventBridgeInstanceTerminateLifecycleActionRule["Properties"]["EventPattern"]["Fn::Sub"] = json.dumps(CcAsgEventBridgeInstanceTerminateLifecycleActionRuleFnSub)
+
+            except Exception as e:
+              err = f"Modifying AutoScaling Group Resource failed: {e}"
+              logger.error(err)
+              responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+              responseData["message"] += err
+            
+            # Vpc Ep
+            try:
+                # Resource Keys to touch are
+                # CcGwlbTargetGroup, CcVpcEp, CcGwlb
+                CcGwlbTargetGroup = resources.get("CcGwlbTargetGroup")
+                # CcGwlbTargetGroup.get("Properties")["Targets"] = responseData.get("Targets")
+                CcGwlbTargetGroup.get("Properties")["VpcId"] = parameters.get("NetworkVpcId")
+                CcGwlb = resources.get("CcGwlb")
+                CcGwlb.get("Properties")["Subnets"] = uniqueCcSubnetIds
+                CcVpcEpTemplate = resources.pop("CcVpcEp")
+                CcVpcEpOutputTemplate = outputs.pop("ZscalerCcVpcEp")
+                CcVpcEpTemplate.get("Properties")["VpcId"] = parameters.get("NetworkVpcId")
+                for az, subnets in subnetsByAz.items():                  
+                  ep_name = f"ZSCCVPCEP{az}"
+                  ep_resource = copy.deepcopy(CcVpcEpTemplate)
+                  ep_resource.get("Properties")["SubnetIds"] = subnets[:1]
+                  resources[ep_name] = ep_resource
+                  ep_output = copy.deepcopy(CcVpcEpOutputTemplate)
+                  ep_output["Description"] = f"{ep_output['Description']} in {az}"
+                  ep_output["Value"] = {"Ref": ep_name}
+                  outputs[ep_name] = ep_output
+            except Exception as e:
+              err = f"Modifying Gwlb Resourced failed: {e}"
+              logger.error(err)
+              responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+              responseData["message"] += err
+            
+            
+            template["Resources"] = resources
+            template["Outputs"] = outputs
+            
+            responseData["fragment"] = template
+            
+            
+            if responseData.get("status") == "success":
+              responseData["message"] = "All required asg resources added/updated successfully!"
+            else:
+              responseData["errorMessage"] = responseData["message"]
+            
+            return responseData
+
+          def zsccasg(event, context):
+              resp = {
+                  "requestId": event.get("requestId")
+                }
+              template = event.get("fragment")   
+              try:
+
+                # validate inputs
+                responseData = validate_inputs_asg(event=event, responseData=resp)
+                resp.update(responseData)
+
+                # retrieve data
+                if resp.get("status") == "success":
+                  responseData = retrieve_data_asg(event=event, responseData=resp)
+                  resp.update(responseData)
+
+                # add/update template
+                if resp.get("status") == "success":
+                  responseData = add_required_asg_resources(event=event, responseData=resp)
+                  logger.info(responseData)
+                  resp.update(responseData)
+                
+
+              except Exception as e:
+                
+                logger.critical(e)
+              
+              return resp
+
           def lambda_handler(event, context):
               logger.info(json.dumps(event))
               operation = OPER_MAP.get(event.get("params").get("operation").lower())
               resp = operation(event, context)
-              logger.info(resp)
+              #logger.info(pprint.pformat(resp, indent=4))
               return resp
 
           # MAP
           OPER_MAP = {
             "zsccgwlb": zsccgwlb,
             "zsccsimple": zsccsimple,
-            "zscczpa": zscczpa 
+            "zscczpa": zscczpa,
+            "zsccasg": zsccasg
           }
+
 
   ZSCCMacroFunctionPermissions:
     Type: AWS::Lambda::Permission
@@ -496,4 +812,4 @@ Resources:
 Outputs:
   CloudConnectorMacroTemplateVersion:
     Description: Cloud Connector Macro Template Version
-    Value: 0.1.3
+    Value: 1.0.0
