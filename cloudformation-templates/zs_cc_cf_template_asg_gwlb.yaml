@@ -389,6 +389,35 @@ Conditions:
     - !Ref GwlbFlowStickiness
     - "3-tuple"
 
+Rules:
+  smallCCInstanceSize:
+    RuleCondition: !Equals
+      - !Ref ZscalerCcInstanceSize
+      - small
+    Assertions:
+      - Assert:
+          'Fn::Contains':
+            - - t3.medium
+              - t3a.medium
+              - c5a.large
+              - m5n.large
+              - m6i.large
+              - c6i.large
+              - m5n.4xlarge
+              - c5.4xlarge
+              - m6i.4xlarge
+              - c6i.4xlarge
+            - !Ref ZscalerAwsEc2InstanceType
+        AssertDescription: >-
+          For small ZscalerCcInstanceSize, the Instance type must be one of t3.medium, t3a.medium, c5a.large, m5n.large, m6i.large, c6i.large, m5n.4xlarge, c5.4xlarge, m6i.4xlarge, c6i.4xlarge
+  CCProvUrlNotEmpty:
+    Assertions:
+      - Assert: !Not
+          - !Equals
+            - !Ref ZscalerCloudConnectorProvUrl
+            - ''
+    AssertionDescription: Cloud Connector Provisioning URL cannot be empty!
+
 Mappings:
   Product2Code:
     CloudConnector:
