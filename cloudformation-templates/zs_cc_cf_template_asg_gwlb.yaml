@@ -337,7 +337,7 @@ Parameters:
         AllowedPattern: '^(80|102[4-9]|10[3-9]\d|1[1-9]\d{2}|[2-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$'
         ConstraintDescription: >-
           The HTTP probe port's allowed values are [80, 1024-65535]
-        Description: "HTTP Monitor probe port to listen on for monitoring probes"
+        Description: "HTTP Monitor probe port to listen on for monitoring probes. Allowed values are 80, 1024-65535. Defaults to 50000"
         Default: 50000
       ZscalerKeyPairName:
         Type: AWS::EC2::KeyPair::KeyName
@@ -551,7 +551,7 @@ Resources:
               - !Join
                 - '='
                 - - 'HTTP_PROBE_PORT'
-                  - !If [ZscalerHttpProbePortNotEmpty, !Ref ZscalerHttpProbePort, '']
+                  - !If [ZscalerHttpProbePortNotEmpty, !Ref ZscalerHttpProbePort, '50000']
         TagSpecifications:
           - ResourceType: instance
             Tags:
