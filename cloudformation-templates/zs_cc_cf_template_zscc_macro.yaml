@@ -796,4 +796,4 @@ Resources:
 Outputs:
   CloudConnectorMacroTemplateVersion:
     Description: Cloud Connector Macro Template Version
-    Value: v0.1.3
+    Value: 1.0.0

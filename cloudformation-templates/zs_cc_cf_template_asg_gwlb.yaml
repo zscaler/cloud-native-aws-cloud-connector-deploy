@@ -954,7 +954,7 @@ Outputs:
     Value: ""
   CloudConnectorTemplateVersion:
     Description: Cloud Connector Template Version
-    Value: v0.1.3
+    Value: 1.0.0
   ZscalerCcInstanceProfileInUse:
     Description: IAM role being used by the CcInstances
     Value: !If 
