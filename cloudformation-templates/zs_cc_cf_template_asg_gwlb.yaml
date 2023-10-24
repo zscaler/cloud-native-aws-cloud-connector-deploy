@@ -347,8 +347,9 @@ Parameters:
         Default: "ZS/CC/credentials"
         Description: "Secret Manager Secret Name, defaults to ZS/CC/credentials"
       ZscalerOsAmi:
-        Type: AWS::EC2::Image::Id
+        Type: String
         Description: "[Optional] Amazon EC2 Image ID to use for the deployment. Leave empty to deploy the latest marketplace AMI"
+        AllowedPattern: '^(ami-[0-9a-f]{17})?$'
       ZscalerEBSEncryptionEnabled:
         Type: String
         Description: "Select \"true\" to enable EBS encryption (default), else \"false\""
