@@ -1,3 +1,27 @@
+## [1.0.1] - 2023-10-23
+
+------------
+BUG FIXES:
+* fix: change ZscalerOsAmi type to String with Constraint
+
+## [1.0.0] - 2023-10-19
+
+------------
+BREAKING CHANGES:
+* Zscaler Cloud Connector AMI version > ZS6.1.25.0 support for default interface swap of both autoscaling and non-autoscaling deployments. Service interface is now ENA0 and Management interface is now ENA1.
+
+FEATURES:
+* Auto Scaling Group official release
+* Medium and Large Cloud Connector instance official release
+* EC2 instance type changes:
+    - new default/recommend EC2 type for small CCs: m6i.large; medium/large: m6i.4xlarge
+    - add: m5n, m6i, and c6i family support
+    - remove: m5 family support
+
+BUG FIXES:
+* fix: asg - move cc instance size to ec2 instance type validation from macro to cft
+* fix: GWLB rebalance, flowstickiness and health attribs (#24)
+
 ## [0.1.3] - 2023-06-20
 
 ------------
