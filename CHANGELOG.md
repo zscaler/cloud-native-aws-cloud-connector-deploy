@@ -1,3 +1,13 @@
+## [1.1.0] - 2023-11-1
+
+------------
+FEATURES:
+* AWS GovCloud (US) support
+
+BUG FIXES:
+* fix: arn support for all aws partitions
+
+
 ## [1.0.1] - 2023-10-23
 
 ------------

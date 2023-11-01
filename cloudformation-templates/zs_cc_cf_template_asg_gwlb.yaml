@@ -303,8 +303,7 @@ Parameters:
       ZscalerCcInstanceProfile:
         Description: "[Optional] An Existing IAM Role ARN to use for Cloud Connector"
         Type: String
-        # Default: "arn:aws:iam::223544365242:instance-profile/ASGGWLB3-CcInstanceProfile-hseOMwjBXTSi"
-        AllowedPattern: '^$|^arn:aws:iam::[0-9]+:instance-profile/.*$'
+        AllowedPattern: '^$|^arn:(aws|aws\\-cn|aws\\-us\\-gov):iam::[0-9]+:instance-profile/.*$'
         ConstraintDescription: >-
           Please specify a valid AWS IAM Role ARN
       ZscalerCcInstanceSize:
@@ -921,7 +920,7 @@ Resources:
         - UseRootAsServicePrincipal
         - - !Join
             - ':'
-            - - 'arn:aws:iam:'
+            - - !Sub 'arn:${AWS::Partition}:iam:'
               - !Ref AWS::AccountId
               - 'root'
         - !Ref GwlbVpcEpServicePrincipals
@@ -955,7 +954,7 @@ Outputs:
     Value: ""
   CloudConnectorTemplateVersion:
     Description: Cloud Connector Template Version
-    Value: 1.0.1
+    Value: 1.1.0
   ZscalerCcInstanceProfileInUse:
     Description: IAM role being used by the CcInstances
     Value: !If 
