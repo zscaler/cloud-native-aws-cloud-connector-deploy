@@ -17,6 +17,7 @@ Metadata:
           - ZscalerOsAmi
           - ZscalerKeyPairName
           - ZscalerCcInstanceProfile
+          - ZscalerCloudTagsEnabled
           - ZscalerCcMgmtIntfSecurityGroup
           - ZscalerCcSrvcIntfSecurityGroup
           - ZscalerSecretManagerSecretName
@@ -108,6 +109,8 @@ Metadata:
         default: Zscaler Cloud Connector AWS EC2 Instance Type
       ZscalerCcInstanceProfile:
         default: Existing IAM Role to use for Zscaler Cloud Connector
+      ZscalerCloudTagsEnabled:
+        default: Add IAM Policy Permissions for AWS Tag Collection. Only enforced if CFT creates a new IAM Role
       ZscalerCcInstanceSize:
         default: Zscaler Cloud Connector Instance Size
       ZscalerCcMgmtIntfSecurityGroup:
@@ -356,6 +359,13 @@ Parameters:
         AllowedValues:
           - true
           - false
+      ZscalerCloudTagsEnabled:
+        Type: String
+        Description: "Select \"true\" to enable Cloud Tag Collection IAM Policy, else \"false\" (default)"
+        Default: false
+        AllowedValues:
+          - true
+          - false
           
 Conditions:
   ZscalerSecretsManagerNameNotEmpty: !Not
@@ -388,6 +398,9 @@ Conditions:
   Use3TupleFlowStickiness: !Equals
     - !Ref GwlbFlowStickiness
     - "3-tuple"
+  CreateCloudTagsIAM: !Equals
+    - !Ref ZscalerCloudTagsEnabled
+    - true
 
 Rules:
   smallCCInstanceSize:
@@ -525,6 +538,27 @@ Resources:
             Resource:
               - '*'
 
+  CcCloudTagsPolicy:
+    Condition: CreateCloudTagsIAM
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Description: Zscaler Cloud Connector AWS Workload Tagging Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'sqs:DeleteMessage'
+              - 'sqs:ReceiveMessage'
+              - 'sqs:GetQueueUrl'
+              - 'sqs:GetQueueAttributes'
+              - 'sqs:SetQueueAttributes'
+              - 'sqs:DeleteQueue'
+              - 'sqs:CreateQueue'
+              - 'sns:Subscribe'
+            Resource:
+              - '*'
+
   CcIamRole:
     Condition: CreateIamAndInstanceProfile
     Type: 'AWS::IAM::Role'
@@ -545,6 +579,7 @@ Resources:
         - !Ref CcSsmControlPolicy
         - !Ref CcCloudwatchMetricsPolicy
         - !Ref CcAutoScalingLifecycleActionsPolicy
+        - !If [CreateCloudTagsIAM, !Ref CcCloudTagsPolicy, !Ref AWS::NoValue]
   
   CcInstanceProfile:
     Condition: CreateIamAndInstanceProfile

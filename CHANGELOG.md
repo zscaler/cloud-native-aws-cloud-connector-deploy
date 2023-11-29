@@ -1,3 +1,9 @@
+## TBD - UNRELEASED
+
+------------
+FEATURES:
+* feat: add optional IAM Policy for AWS Workload Tags support with Cloud Connector Instance IAM Role creation
+
 ## [1.1.0] - 2023-11-1
 
 ------------
