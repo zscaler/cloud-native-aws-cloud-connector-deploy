@@ -22,6 +22,7 @@ Metadata:
           - ZscalerSecretManagerSecretName
           - HttpProbePort
           - ZscalerEBSEncryptionEnabled
+          - ZscalerCloudTagsEnabled
     ParameterLabels:
       InstanceType:
         default: Zscaler Cloud Connector AWS EC2 Instance Type
@@ -45,6 +46,9 @@ Metadata:
         default: HTTP Monitor Probe Port
       ZscalerEBSEncryptionEnabled:
         default: EBS Encryption Enabled
+      ZscalerCloudTagsEnabled:
+        default: Add IAM Policy Permissions for AWS Tag Collection
+
   cfn-lint:
     config:
       ignore_checks:
@@ -125,6 +129,13 @@ Parameters:
         AllowedValues:
           - true
           - false
+  ZscalerCloudTagsEnabled:
+        Type: String
+        Description: "Select \"true\" to enable Cloud Tag Collection IAM Policy, else \"false\" (default)"
+        Default: false
+        AllowedValues:
+          - true
+          - false
 
 Conditions:
   SecretsManagerNameNotEmpty: !Not [!Equals [!Ref ZscalerSecretManagerSecretName, '']]
@@ -133,6 +144,10 @@ Conditions:
     - !Equals [!Ref CCInstanceType, "medium"]
     - !Equals [!Ref CCInstanceType, "large"]
   CreateCCLargeServiceXfaces: !Equals [!Ref CCInstanceType, "large"]
+  CreateCloudTagsIAM: !Equals
+    - !Ref ZscalerCloudTagsEnabled
+    - true
+
 Rules:
   SubnetsInVPC:
     Assertions:
@@ -363,6 +378,27 @@ Resources:
               - 'ssmmessages:OpenDataChannel'
             Resource:
               - '*'
+  
+  CcCloudTagsPolicy:
+    Condition: CreateCloudTagsIAM
+    Type: AWS::IAM::ManagedPolicy
+    Properties: 
+      Description: Zscaler Cloud Connector AWS Workload Tagging Policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'sqs:DeleteMessage'
+              - 'sqs:ReceiveMessage'
+              - 'sqs:GetQueueUrl'
+              - 'sqs:GetQueueAttributes'
+              - 'sqs:SetQueueAttributes'
+              - 'sqs:DeleteQueue'
+              - 'sqs:CreateQueue'
+              - 'sns:Subscribe'
+            Resource:
+              - '*'
 
   CcIamRole:
     Type: 'AWS::IAM::Role'
@@ -381,7 +417,7 @@ Resources:
       ManagedPolicyArns:
         - !Ref CcGetSecretsPolicy
         - !Ref CcSsmControlPolicy
-
+        - !If [CreateCloudTagsIAM, !Ref CcCloudTagsPolicy, !Ref AWS::NoValue]
 
   CCHostProfile:
     Type: 'AWS::IAM::InstanceProfile'
