@@ -2,7 +2,15 @@
 
 ------------
 FEATURES:
-* feat: add optional IAM Policy for AWS Workload Tags support with Cloud Connector Instance IAM Role creation
+* feat: add optional IAM Policy for AWS Workload Tags support with Cloud Connector Instance IAM Role creation. Permissions include:
+    - sqs:DeleteMessage
+    - sqs:ReceiveMessage
+    - sqs:GetQueueUrl
+    - sqs:GetQueueAttributes
+    - sqs:SetQueueAttributes
+    - sqs:DeleteQueue
+    - sqs:CreateQueue
+    - sns:Subscribe
 
 ## [1.1.0] - 2023-11-1
 

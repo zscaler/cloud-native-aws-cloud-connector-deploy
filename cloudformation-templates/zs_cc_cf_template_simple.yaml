@@ -131,8 +131,8 @@ Parameters:
           - false
   ZscalerCloudTagsEnabled:
         Type: String
-        Description: "Select \"true\" to enable Cloud Tag Collection IAM Policy, else \"false\" (default)"
-        Default: false
+        Description: "Select \"true\" to enable Cloud Tag Collection IAM Policy (default), else \"false\""
+        Default: true
         AllowedValues:
           - true
           - false
