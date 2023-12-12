@@ -14,5 +14,6 @@ jobs:
           sudo apt-get update -y          
           sudo apt install python3.10-venv
           pip3 install cfn-lint
+          cfn-lint --update-specs
           cfn-lint --version
           cfn-lint -t cloudformation-templates/**/*.yaml
