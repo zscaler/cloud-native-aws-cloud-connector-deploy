@@ -812,6 +812,9 @@ Resources:
       Code:
         S3Bucket: !Ref AsgS3BucketName
         S3Key: !Ref AsgS3Key
+      LoggingConfig:
+        LogFormat: 'Text'
+        LogGroup: !Ref CcCloudwatchLogGroupForLambda
   ## Event-bridge Terminate rule and Lambda permission
   CcAsgEventBridgeInstanceTerminateLifecycleActionRule:
     Type: AWS::Events::Rule
