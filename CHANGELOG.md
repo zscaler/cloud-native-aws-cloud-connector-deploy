@@ -1,4 +1,4 @@
-## TBD - UNRELEASED
+## 1.2.0 - 2023-12-16
 
 ------------
 FEATURES:
@@ -11,6 +11,10 @@ FEATURES:
     - sqs:DeleteQueue
     - sqs:CreateQueue
     - sns:Subscribe
+
+BUG FIXES:
+* fix: add log group configuration to asg lambda
+* fix: default http probe port value
 
 ## [1.1.0] - 2023-11-1
 
