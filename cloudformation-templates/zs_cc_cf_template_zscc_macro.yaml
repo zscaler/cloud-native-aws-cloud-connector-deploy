@@ -73,7 +73,7 @@ Resources:
       Role: !GetAtt
         - ZSCCMacroExecutionRole
         - Arn
-      Runtime: python3.7
+      Runtime: python3.12
       Code:
         ZipFile: |
           import json
