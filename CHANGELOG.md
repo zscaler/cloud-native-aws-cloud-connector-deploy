@@ -1,4 +1,4 @@
-## TBD - UNRELEASED
+## 1.2.1 - 2024-02-22
 
 BUG FIXES:
 * fix: aws lambda python runtime version update
