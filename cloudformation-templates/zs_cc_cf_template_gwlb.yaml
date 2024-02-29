@@ -162,4 +162,4 @@ Outputs:
     Value: !Ref ZSCCVPCEP
   CloudConnectorGWLBTemplateVersion:
     Description: Cloud Connector Template Version
-    Value: 1.2.0
+    Value: 1.2.1

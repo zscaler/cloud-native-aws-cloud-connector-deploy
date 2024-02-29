@@ -73,7 +73,7 @@ Resources:
       Role: !GetAtt
         - ZSCCMacroExecutionRole
         - Arn
-      Runtime: python3.7
+      Runtime: python3.12
       Code:
         ZipFile: |
           import json
@@ -796,4 +796,4 @@ Resources:
 Outputs:
   CloudConnectorMacroTemplateVersion:
     Description: Cloud Connector Macro Template Version
-    Value: 1.2.0
+    Value: 1.2.1
