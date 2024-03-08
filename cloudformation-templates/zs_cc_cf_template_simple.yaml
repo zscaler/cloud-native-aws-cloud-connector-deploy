@@ -9,6 +9,7 @@ Metadata:
           default: Network Configuration
         Parameters:
           - VPCID
+          - VPCIpCidrBlock
           - AvailabilityZone
           - CCSubnetID
       - Label:
@@ -23,6 +24,7 @@ Metadata:
           - HttpProbePort
           - ZscalerEBSEncryptionEnabled
           - ZscalerCloudTagsEnabled
+          
     ParameterLabels:
       InstanceType:
         default: Zscaler Cloud Connector AWS EC2 Instance Type
@@ -34,6 +36,8 @@ Metadata:
         default: Zscaler product
       VPCID:
         default: Choose a VPC ID to Deploy Cloud Connector
+      VPCIpCidrBlock:
+        default: IP CIDR Range for Ingress Security Group Rules
       AvailabilityZone:
         default: Choose an Availability Zone to Deploy Cloud Connector
       CCSubnetID:
@@ -136,6 +140,10 @@ Parameters:
         AllowedValues:
           - true
           - false
+  VPCIpCidrBlock:
+    Type: String
+    Description: 'The CIDR Range you want to restrict ingress security group rules to'
+    Default: "10.0.0.0/8"
 
 Conditions:
   SecretsManagerNameNotEmpty: !Not [!Equals [!Ref ZscalerSecretManagerSecretName, '']]
@@ -231,22 +239,132 @@ Resources:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       VpcId: !Ref VPCID
-      GroupDescription: Enable intra cloud comm
-      SecurityGroupIngress:
-        - IpProtocol: TCP
-          FromPort: '22'
-          ToPort: '22'
+      GroupName: cc-mgmt-sg
+      GroupDescription: Security group for Cloud Connector management interface
+  MgmtEgressRule1:
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Required: CC outbound TCP/443"
+          GroupId: !Ref MgmtSecurityGroup
+          IpProtocol: "tcp"
+          FromPort: 443
+          ToPort: 443
           CidrIp: 0.0.0.0/0
+  MgmtEgressRule2:
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Required: CC Mgmt outbound UDP/123"
+          GroupId: !Ref MgmtSecurityGroup
+          IpProtocol: "udp"
+          FromPort: 123
+          ToPort: 123
+          CidrIp: 0.0.0.0/0
+  MgmtEgressRule3:
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Recommended: CC Mgmt outbound Zscaler Remote Support TCP/12002"
+          GroupId: !Ref MgmtSecurityGroup
+          IpProtocol: "tcp"
+          FromPort: 12002
+          ToPort: 12002
+          CidrIp: 0.0.0.0/0 #zssupport_server
+  MgmtIngressRule1:
+      Type: AWS::EC2::SecurityGroupIngress
+      Properties:
+          Description: "Recommended: SSH to CC management"
+          GroupId: !Ref MgmtSecurityGroup
+          IpProtocol: "tcp"
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref VPCIpCidrBlock
+      
   ServiceSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       VpcId: !Ref VPCID
-      GroupDescription: Enable intra cloud comm
-      SecurityGroupIngress:
-        - IpProtocol: '-1'
-          FromPort: '0'
-          ToPort: '65535'
+      GroupName: cc-svc-sg
+      GroupDescription: Security group for Cloud Connector service interfaces
+  ServiceEgressRule1:
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Required: CC outbound TCP 443"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "tcp"
+          FromPort: 443
+          ToPort: 443
           CidrIp: 0.0.0.0/0
+  ServiceEgressRule2:
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Required: CC Service outbound UDP 443"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "udp"
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+  ServiceEgressRule3:
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Required: CC Service outbound NTP"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "udp"
+          FromPort: 123
+          ToPort: 123
+          CidrIp: 0.0.0.0/0
+  ServiceEgressRule4:
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Required: CC GENEVE encapsulation traffic to GWLB from CC Service"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "udp"
+          FromPort: 6081
+          ToPort: 6081
+          CidrIp: !Ref VPCIpCidrBlock
+  ServiceEgressRule5:
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Optional: CC outbound all ports and protocols"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "-1"
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+  ServiceIngressRule1:
+      Type: AWS::EC2::SecurityGroupIngress
+      Properties:
+          Description: "Required: CC Service TCP health probe"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "tcp"
+          FromPort: !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '50000']
+          ToPort: !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '50000']
+          CidrIp: !Ref VPCIpCidrBlock 
+  ServiceIngressRule2:
+      Type: AWS::EC2::SecurityGroupIngress
+      Properties:
+          Description: "Required: CC inbound internal VPC cluster TCP 443 communication"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "tcp"
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref VPCIpCidrBlock 
+  ServiceIngressRule3:
+      Type: AWS::EC2::SecurityGroupIngress
+      Properties:
+          Description: "Required: CC GENEVE encapsulation traffic to CC Service from GWLB"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "udp"
+          FromPort: 6081
+          ToPort: 6081
+          CidrIp: !Ref VPCIpCidrBlock
+  ServiceIngressRule4:
+      Type: AWS::EC2::SecurityGroupIngress
+      Properties:
+          Description: "Optional: Permit All Intra-VPC Traffic / Ensure CC Service Interfaces are able to communicate with each other freely"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "-1"
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: !Ref VPCIpCidrBlock
   MgmtXface:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
