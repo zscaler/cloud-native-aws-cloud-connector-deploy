@@ -648,7 +648,7 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties: 
       AutoScalingGroupName: !Sub '${AWS::StackName}-CloudConnectorAutoScalingGroup'
-      HealthCheckGracePeriod: 0
+      HealthCheckGracePeriod: 900
       HealthCheckType: EC2
       DefaultInstanceWarmup: 0
       LaunchTemplate: 
