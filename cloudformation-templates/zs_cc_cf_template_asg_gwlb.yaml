@@ -796,8 +796,9 @@ Resources:
     Properties:
       Handler: zscaler_cc_lambda_service.lambda_handler
       Description: Auto Scaling Group Lambda for Failure management
-      Timeout: 180
+      Timeout: 180 # executes for max 180 seconds
       MemorySize: 256
+      Architectures: ['arm64']
       Role: !GetAtt
         - CcAsgLambdaRole
         - Arn
@@ -807,8 +808,10 @@ Resources:
           ASG_NAMES: !Sub '{json_dump_asg_names}'
           CC_URL: !Ref ZscalerCloudConnectorProvUrl
           SECRET_NAME: !If [ZscalerSecretsManagerNameNotEmpty, !Ref ZscalerSecretManagerSecretName, 'ZS/CC/credentials']
-          HC_DATA_POINTS: '10'
-          HC_UNHEALTHY_THRESHOLD: '7'
+          HC_DATA_POINTS: '10' # most recent datapoints to evaulate
+          HC_UNHEALTHY_THRESHOLD: '7'  # unhealthy datapoints threshold 
+          HC_UNHEALTHY_CONTIGUOUS_DP: '5'  # continuous unhealthy datapoint counts
+          MISSING_DATAPOINTS_UNHEALTHY: true # treat missing datapoints as unhealthy
       Code:
         S3Bucket: !Ref AsgS3BucketName
         S3Key: !Ref AsgS3Key
