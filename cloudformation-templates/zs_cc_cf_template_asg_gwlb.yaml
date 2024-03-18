@@ -801,7 +801,7 @@ Resources:
       Role: !GetAtt
         - CcAsgLambdaRole
         - Arn
-      Runtime: python3.9
+      Runtime: python3.12
       Environment:
         Variables:
           ASG_NAMES: !Sub '{json_dump_asg_names}'
