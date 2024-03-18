@@ -1,3 +1,11 @@
+## UNRELEASED - TBD
+
+------------
+FEATURES:
+* feat: change HeathCheckGracePeriod default to 900 seconds to prevent instance termination in Auto Scaling Group when moved to InService
+* feat: change Python runtime for Lambda to use 3.12 version 
+* feat: default arm64 architecture. This is more for cost/peformance benefit.
+
 ## 1.2.1 - 2024-02-22
 
 BUG FIXES:
