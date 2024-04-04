@@ -9,7 +9,6 @@ Metadata:
           default: Network Configuration
         Parameters:
           - VPCID
-          - VPCIpCidrBlock
           - AvailabilityZone
           - CCSubnetID
       - Label:
@@ -24,6 +23,9 @@ Metadata:
           - HttpProbePort
           - ZscalerEBSEncryptionEnabled
           - ZscalerCloudTagsEnabled
+          - ServiceIntSGCidr
+          - SSHInboundSGCidr
+          - ZSSupportServerIP
           
     ParameterLabels:
       InstanceType:
@@ -36,8 +38,12 @@ Metadata:
         default: Zscaler product
       VPCID:
         default: Choose a VPC ID to Deploy Cloud Connector
-      VPCIpCidrBlock:
-        default: IP CIDR Range for Ingress Security Group Rules
+      ServiceIntSGCidr:
+        default: IP CIDR Range for Service Ingress Security Group Rules
+      SSHInboundSGCidr:
+        default: IP CIDR Range for Management SSH Ingress Security Group Rule
+      ZSSupportServerIP:
+        default: IP Address for outbound Zscaler Support Tunnel Egress Security Rule
       AvailabilityZone:
         default: Choose an Availability Zone to Deploy Cloud Connector
       CCSubnetID:
@@ -140,11 +146,18 @@ Parameters:
         AllowedValues:
           - true
           - false
-  VPCIpCidrBlock:
+  ServiceIntSGCidr:
     Type: String
-    Description: 'The CIDR Range you want to restrict ingress security group rules to'
+    Description: 'The CIDR Range you want to restrict ingress security group rules to CC service interface. Minimum required is connectivity from GWLB and all Cloud Connector VPC subnet ranges'
+    Default: "0.0.0.0/0"
+  SSHInboundSGCidr:
+    Type: String
+    Description: 'The CIDR Range you want to restrict SSH ingress access to the CC management interface'
     Default: "10.0.0.0/8"
-
+  ZSSupportServerIP:
+    Type: String
+    Description: 'Restrict Egress Security Group Rule for TCP/12002 to only Zscaler Support Service IP. To find your IP resolve remotesupport.<zscaler cloud>.net and add this IP'
+    Default: "199.168.148.101/32"
 Conditions:
   SecretsManagerNameNotEmpty: !Not [!Equals [!Ref ZscalerSecretManagerSecretName, '']]
   HttpProbePortNotEmpty: !Not [!Equals [!Ref HttpProbePort, '']]
@@ -267,7 +280,7 @@ Resources:
           IpProtocol: "tcp"
           FromPort: 12002
           ToPort: 12002
-          CidrIp: 0.0.0.0/0 #zssupport_server
+          CidrIp: !Ref ZSSupportServerIP
   MgmtIngressRule1:
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
@@ -276,7 +289,7 @@ Resources:
           IpProtocol: "tcp"
           FromPort: 22
           ToPort: 22
-          CidrIp: !Ref VPCIpCidrBlock
+          CidrIp: !Ref SSHInboundSGCidr
       
   ServiceSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
@@ -319,7 +332,7 @@ Resources:
           IpProtocol: "udp"
           FromPort: 6081
           ToPort: 6081
-          CidrIp: !Ref VPCIpCidrBlock
+          CidrIp: !Ref ServiceIntSGCidr
   ServiceEgressRule5:
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
@@ -337,7 +350,7 @@ Resources:
           IpProtocol: "tcp"
           FromPort: !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '50000']
           ToPort: !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '50000']
-          CidrIp: !Ref VPCIpCidrBlock 
+          CidrIp: !Ref ServiceIntSGCidr 
   ServiceIngressRule2:
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
@@ -346,7 +359,7 @@ Resources:
           IpProtocol: "tcp"
           FromPort: 443
           ToPort: 443
-          CidrIp: !Ref VPCIpCidrBlock 
+          CidrIp: !Ref ServiceIntSGCidr 
   ServiceIngressRule3:
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
@@ -355,7 +368,7 @@ Resources:
           IpProtocol: "udp"
           FromPort: 6081
           ToPort: 6081
-          CidrIp: !Ref VPCIpCidrBlock
+          CidrIp: !Ref ServiceIntSGCidr
   ServiceIngressRule4:
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
@@ -364,7 +377,7 @@ Resources:
           IpProtocol: "-1"
           FromPort: 0
           ToPort: 65535
-          CidrIp: !Ref VPCIpCidrBlock
+          CidrIp: !Ref ServiceIntSGCidr
   MgmtXface:
     Type: 'AWS::EC2::NetworkInterface'
     Properties:
