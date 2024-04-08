@@ -247,7 +247,7 @@ Resources:
       VpcId: !Ref VPCID
       GroupName: cc-mgmt-sg
       GroupDescription: Security group for Cloud Connector management interface
-  MgmtEgressRule1:
+  MgmtEgressRuleTcp443:
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
           Description: "Required: CC outbound TCP/443"
@@ -256,7 +256,7 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-  MgmtEgressRule2:
+  MgmtEgressRuleUdp123:
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
           Description: "Required: CC Mgmt outbound UDP/123"
@@ -265,7 +265,7 @@ Resources:
           FromPort: 123
           ToPort: 123
           CidrIp: 0.0.0.0/0
-  MgmtEgressRule3:
+  MgmtEgressRuleTcp12002:
       Condition: CreateZsSupportRule
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
@@ -275,7 +275,7 @@ Resources:
           FromPort: 12002
           ToPort: 12002
           CidrIp: 199.168.148.101/32
-  MgmtIngressRule1:
+  MgmtIngressRuleTcp22:
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
           Description: "Recommended: SSH to CC management"
@@ -291,7 +291,7 @@ Resources:
       VpcId: !Ref VPCID
       GroupName: cc-svc-sg
       GroupDescription: Security group for Cloud Connector service interfaces
-  ServiceEgressRule1:
+  ServiceEgressRuleTcp443:
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
           Description: "Required: CC outbound TCP 443"
@@ -300,7 +300,7 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-  ServiceEgressRule2:
+  ServiceEgressRuleUdp443:
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
           Description: "Required: CC Service outbound UDP 443"
@@ -309,7 +309,7 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-  ServiceEgressRule3:
+  ServiceEgressRuleUdp123:
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
           Description: "Required: CC Service outbound NTP"
@@ -318,7 +318,7 @@ Resources:
           FromPort: 123
           ToPort: 123
           CidrIp: 0.0.0.0/0
-  ServiceEgressRule4:
+  ServiceEgressRuleUdp6081:
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
           Description: "Required: CC GENEVE encapsulation traffic to GWLB from CC Service"
@@ -327,7 +327,7 @@ Resources:
           FromPort: 6081
           ToPort: 6081
           CidrIp: 0.0.0.0/0
-  ServiceEgressRule5:
+  ServiceEgressRuleAny:
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
           Description: "Optional: CC outbound all ports and protocols"
@@ -336,7 +336,7 @@ Resources:
           FromPort: 0
           ToPort: 65535
           CidrIp: 0.0.0.0/0
-  ServiceIngressRule1:
+  ServiceIngressRuleTcpHealthProbe:
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
           Description: "Required: CC Service TCP health probe"
@@ -345,7 +345,7 @@ Resources:
           FromPort: !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '50000']
           ToPort: !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '50000']
           CidrIp: 0.0.0.0/0 
-  ServiceIngressRule2:
+  ServiceIngressRuleTcp443:
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
           Description: "Required: CC inbound internal VPC cluster TCP 443 communication"
@@ -354,7 +354,7 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-  ServiceIngressRule3:
+  ServiceIngressRuleUdp6081:
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
           Description: "Required: CC GENEVE encapsulation traffic to CC Service from GWLB"
@@ -363,7 +363,7 @@ Resources:
           FromPort: 6081
           ToPort: 6081
           CidrIp: 0.0.0.0/0
-  ServiceIngressRule4:
+  ServiceIngressRuleAny:
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
           Description: "Optional: Permit All Intra-VPC Traffic / Ensure CC Service Interfaces are able to communicate with each other freely"

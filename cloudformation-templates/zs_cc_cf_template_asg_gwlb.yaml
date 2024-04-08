@@ -464,7 +464,7 @@ Resources:
       VpcId: !Ref NetworkVpcId
       GroupName: cc-mgmt-sg
       GroupDescription: Security group for Cloud Connector management interface
-  MgmtEgressRule1:
+  MgmtEgressRuleTcp443:
       Condition: CreateMgmtIntfSecurityGroup
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
@@ -474,7 +474,7 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-  MgmtEgressRule2:
+  MgmtEgressRuleUdp123:
       Condition: CreateMgmtIntfSecurityGroup
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
@@ -484,7 +484,7 @@ Resources:
           FromPort: 123
           ToPort: 123
           CidrIp: 0.0.0.0/0
-  MgmtEgressRule3:
+  MgmtEgressRuleTcp12002:
       Condition: CreateZsSupportRule
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
@@ -494,7 +494,7 @@ Resources:
           FromPort: 12002
           ToPort: 12002
           CidrIp: 199.168.148.101/32
-  MgmtIngressRule1:
+  MgmtIngressRuleTcp22:
       Condition: CreateMgmtIntfSecurityGroup
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
@@ -512,7 +512,7 @@ Resources:
       VpcId: !Ref NetworkVpcId
       GroupName: cc-svc-sg
       GroupDescription: Security group for Cloud Connector service interfaces
-  ServiceEgressRule1:
+  ServiceEgressRuleTcp443:
       Condition: CreateSrvcIntfSecurityGroup
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
@@ -522,7 +522,7 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-  ServiceEgressRule2:
+  ServiceEgressRuleUdp443:
       Condition: CreateSrvcIntfSecurityGroup
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
@@ -532,7 +532,7 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-  ServiceEgressRule3:
+  ServiceEgressRuleUdp123:
       Condition: CreateSrvcIntfSecurityGroup
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
@@ -542,7 +542,7 @@ Resources:
           FromPort: 123
           ToPort: 123
           CidrIp: 0.0.0.0/0
-  ServiceEgressRule4:
+  ServiceEgressRuleUdp6081:
       Condition: CreateSrvcIntfSecurityGroup
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
@@ -552,7 +552,7 @@ Resources:
           FromPort: 6081
           ToPort: 6081
           CidrIp: 0.0.0.0/0
-  ServiceEgressRule5:
+  ServiceEgressRuleAny:
       Condition: CreateSrvcIntfSecurityGroup
       Type: AWS::EC2::SecurityGroupEgress
       Properties:
@@ -562,7 +562,7 @@ Resources:
           FromPort: 0
           ToPort: 65535
           CidrIp: 0.0.0.0/0
-  ServiceIngressRule1:
+  ServiceIngressRuleTcpHealthProbe:
       Condition: CreateSrvcIntfSecurityGroup
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
@@ -572,7 +572,7 @@ Resources:
           FromPort: !If [ZscalerHttpProbePortNotEmpty, !Ref ZscalerHttpProbePort, '50000']
           ToPort: !If [ZscalerHttpProbePortNotEmpty, !Ref ZscalerHttpProbePort, '50000']
           CidrIp: 0.0.0.0/0 
-  ServiceIngressRule2:
+  ServiceIngressRuleTcp443:
       Condition: CreateSrvcIntfSecurityGroup
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
@@ -582,7 +582,7 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-  ServiceIngressRule3:
+  ServiceIngressRuleUdp6081:
       Condition: CreateSrvcIntfSecurityGroup
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
@@ -592,7 +592,7 @@ Resources:
           FromPort: 6081
           ToPort: 6081
           CidrIp: 0.0.0.0/0
-  ServiceIngressRule4:
+  ServiceIngressRuleAny:
       Condition: CreateSrvcIntfSecurityGroup
       Type: AWS::EC2::SecurityGroupIngress
       Properties:
