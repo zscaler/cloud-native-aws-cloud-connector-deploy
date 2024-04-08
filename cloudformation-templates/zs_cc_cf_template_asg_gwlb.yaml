@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Zscaler Cloud Connector Auto Scaling Group Template
+Description: Zscaler Cloud Connector Starter Deployment Template with Auto Scaling and GWLB v1.3.0
 
 Metadata:
   LICENSE: 'Apache License, Version 2.0'
@@ -19,6 +19,7 @@ Metadata:
           - ZscalerKeyPairName
           - ZscalerCcInstanceProfile
           - ZscalerCloudTagsEnabled
+          - ZscalerSupportServerRuleEnabled
           - ZscalerCcMgmtIntfSecurityGroup
           - ZscalerCcSrvcIntfSecurityGroup
           - ZscalerSecretManagerSecretName
@@ -111,6 +112,8 @@ Metadata:
         default: Existing IAM Role ARN to use for Zscaler Cloud Connector
       ZscalerCloudTagsEnabled:
         default: Add IAM Policy Permissions for AWS Tag Collection. Only enforced if CFT creates a new IAM Role
+      ZscalerSupportServerRuleEnabled:
+        default: Add Management Security Group Rule for Zscaler Support Server Connectivity
       ZscalerCcInstanceSize:
         default: Zscaler Cloud Connector Instance Size
       ZscalerCcMgmtIntfSecurityGroup:
@@ -373,6 +376,13 @@ Parameters:
         AllowedValues:
           - true
           - false
+      ZscalerSupportServerRuleEnabled:
+        Type: String
+        Description: "Select \"true\" to enable creation of Management Security Group rule permitting egress TCP/12002 Zscaler Support Server Destinations (default), else \"false\" to not enable (Not recommended as this may prohibit Zscaler Support assistance if required)"
+        Default: true
+        AllowedValues:
+          - true
+          - false
           
 Conditions:
   ZscalerSecretsManagerNameNotEmpty: !Not
@@ -408,6 +418,9 @@ Conditions:
   CreateCloudTagsIAM: !Equals
     - !Ref ZscalerCloudTagsEnabled
     - true
+  CreateZsSupportRule: !And
+    - !Equals [!Ref ZscalerSupportServerRuleEnabled, true]
+    - !Condition CreateMgmtIntfSecurityGroup
 
 Rules:
   smallCCInstanceSize:
@@ -445,37 +458,149 @@ Mappings:
 
 Resources: 
   MgmtSecurityGroup:
-    Type: 'AWS::EC2::SecurityGroup'
     Condition: CreateMgmtIntfSecurityGroup
+    Type: 'AWS::EC2::SecurityGroup'
     Properties:
       VpcId: !Ref NetworkVpcId
-      GroupDescription: Enable intra cloud comm
-      SecurityGroupEgress:
-        - IpProtocol: '-1'
-          FromPort: '0'
-          ToPort: '0'
+      GroupName: cc-mgmt-sg
+      GroupDescription: Security group for Cloud Connector management interface
+  MgmtEgressRule1:
+      Condition: CreateMgmtIntfSecurityGroup
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Required: CC outbound TCP/443"
+          GroupId: !Ref MgmtSecurityGroup
+          IpProtocol: "tcp"
+          FromPort: 443
+          ToPort: 443
           CidrIp: 0.0.0.0/0
-      SecurityGroupIngress:
-        - IpProtocol: TCP
-          FromPort: '22'
-          ToPort: '22'
+  MgmtEgressRule2:
+      Condition: CreateMgmtIntfSecurityGroup
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Required: CC Mgmt outbound UDP/123"
+          GroupId: !Ref MgmtSecurityGroup
+          IpProtocol: "udp"
+          FromPort: 123
+          ToPort: 123
+          CidrIp: 0.0.0.0/0
+  MgmtEgressRule3:
+      Condition: CreateZsSupportRule
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Recommended: CC Mgmt outbound Zscaler Remote Support TCP/12002"
+          GroupId: !Ref MgmtSecurityGroup
+          IpProtocol: "tcp"
+          FromPort: 12002
+          ToPort: 12002
+          CidrIp: 199.168.148.101/32
+  MgmtIngressRule1:
+      Condition: CreateMgmtIntfSecurityGroup
+      Type: AWS::EC2::SecurityGroupIngress
+      Properties:
+          Description: "Recommended: SSH to CC management"
+          GroupId: !Ref MgmtSecurityGroup
+          IpProtocol: "tcp"
+          FromPort: 22
+          ToPort: 22
           CidrIp: 0.0.0.0/0
   
   ServiceSecurityGroup:
-    Type: 'AWS::EC2::SecurityGroup'
     Condition: CreateSrvcIntfSecurityGroup
+    Type: 'AWS::EC2::SecurityGroup'
     Properties:
       VpcId: !Ref NetworkVpcId
-      GroupDescription: Allow all VPC traffic
-      SecurityGroupEgress:
-        - IpProtocol: '-1'
-          FromPort: '0'
-          ToPort: '0'
+      GroupName: cc-svc-sg
+      GroupDescription: Security group for Cloud Connector service interfaces
+  ServiceEgressRule1:
+      Condition: CreateSrvcIntfSecurityGroup
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Required: CC outbound TCP 443"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "tcp"
+          FromPort: 443
+          ToPort: 443
           CidrIp: 0.0.0.0/0
-      SecurityGroupIngress:
-        - IpProtocol: '-1'
-          FromPort: '0'
-          ToPort: '65535'
+  ServiceEgressRule2:
+      Condition: CreateSrvcIntfSecurityGroup
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Required: CC Service outbound UDP 443"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "udp"
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+  ServiceEgressRule3:
+      Condition: CreateSrvcIntfSecurityGroup
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Required: CC Service outbound NTP"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "udp"
+          FromPort: 123
+          ToPort: 123
+          CidrIp: 0.0.0.0/0
+  ServiceEgressRule4:
+      Condition: CreateSrvcIntfSecurityGroup
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Required: CC GENEVE encapsulation traffic to GWLB from CC Service"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "udp"
+          FromPort: 6081
+          ToPort: 6081
+          CidrIp: 0.0.0.0/0
+  ServiceEgressRule5:
+      Condition: CreateSrvcIntfSecurityGroup
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Optional: CC outbound all ports and protocols"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "-1"
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+  ServiceIngressRule1:
+      Condition: CreateSrvcIntfSecurityGroup
+      Type: AWS::EC2::SecurityGroupIngress
+      Properties:
+          Description: "Required: CC Service TCP health probe"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "tcp"
+          FromPort: !If [ZscalerHttpProbePortNotEmpty, !Ref ZscalerHttpProbePort, '50000']
+          ToPort: !If [ZscalerHttpProbePortNotEmpty, !Ref ZscalerHttpProbePort, '50000']
+          CidrIp: 0.0.0.0/0 
+  ServiceIngressRule2:
+      Condition: CreateSrvcIntfSecurityGroup
+      Type: AWS::EC2::SecurityGroupIngress
+      Properties:
+          Description: "Required: CC inbound internal VPC cluster TCP 443 communication"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "tcp"
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+  ServiceIngressRule3:
+      Condition: CreateSrvcIntfSecurityGroup
+      Type: AWS::EC2::SecurityGroupIngress
+      Properties:
+          Description: "Required: CC GENEVE encapsulation traffic to CC Service from GWLB"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "udp"
+          FromPort: 6081
+          ToPort: 6081
+          CidrIp: 0.0.0.0/0
+  ServiceIngressRule4:
+      Condition: CreateSrvcIntfSecurityGroup
+      Type: AWS::EC2::SecurityGroupIngress
+      Properties:
+          Description: "Optional: Permit All Intra-VPC Traffic / Ensure CC Service Interfaces are able to communicate with each other freely"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "-1"
+          FromPort: 0
+          ToPort: 65535
           CidrIp: 0.0.0.0/0
   
   CcGetSecretsPolicy:
@@ -1002,7 +1127,7 @@ Outputs:
     Value: ""
   CloudConnectorTemplateVersion:
     Description: Cloud Connector Template Version
-    Value: 1.2.1
+    Value: 1.3.0
   ZscalerCcInstanceProfileInUse:
     Description: IAM role being used by the CcInstances
     Value: !If 
