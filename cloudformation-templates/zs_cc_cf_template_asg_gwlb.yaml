@@ -11,6 +11,7 @@ Metadata:
           - NetworkVpcId
           - NetworkAvailabilityZones
           - NetworkCcSubnetIds
+          - AsgZonalEnabled
       - Label:
           default: Zscaler Launch Template Configuration
         Parameters:
@@ -56,10 +57,9 @@ Metadata:
       NetworkVpcId:
         default: VPC ID
       NetworkAvailabilityZones:
-        default: Choose an Availability Zone to Deploy Cloud Connector and GWLB/VPC Endpoints
+        default: Choose Availability Zones to Deploy Zscaler Cloud Connector Resources
       NetworkCcSubnetIds:
-        default: Subnet ID for the Zscaler Cloud Connector Auto Scaling Group
-
+        default: Subnet IDs for the Zscaler Cloud Connector Auto Scaling Group
       AsgLaunchTemplateVersion:
         default: Auto Scaling Group Launch Template Version
       AsgMinSize:
@@ -84,8 +84,8 @@ Metadata:
         default: Lambda S3 Bucket Name
       AsgS3Key:
         default: Lambda S3 Key
-
-
+      AsgZonalEnabled:
+        default: Availability Zone based Auto Scaling Groups
       GwlbAcceptanceRequiredVpcEps:
         default: Require Acceptance For Newly Created VPC Endpoints?
       GwlbCrossZoneLbEnabled:
@@ -108,15 +108,15 @@ Metadata:
       ZscalerAwsEc2InstanceType:
         default: Zscaler Cloud Connector AWS EC2 Instance Type
       ZscalerCcInstanceProfile:
-        default: Existing IAM Role to use for Zscaler Cloud Connector
+        default: Existing IAM Role ARN to use for Zscaler Cloud Connector
       ZscalerCloudTagsEnabled:
         default: Add IAM Policy Permissions for AWS Tag Collection. Only enforced if CFT creates a new IAM Role
       ZscalerCcInstanceSize:
         default: Zscaler Cloud Connector Instance Size
       ZscalerCcMgmtIntfSecurityGroup:
-        default: Zscaler Cloud Connector Management Interface Security Group
+        default: Existing Security Group ID to use for Zscaler Cloud Connector Management Interface
       ZscalerCcSrvcIntfSecurityGroup:
-        default: Zscaler Cloud Connector Service Interface Security Group
+        default: Existing Security Group ID to use for Zscaler Cloud Connector Service Interface
       ZscalerCloudConnectorProvUrl:
         default: Cloud Connector Provisioning URL
       ZscalerOsAmi:
@@ -151,9 +151,9 @@ Parameters:
         Type: 'AWS::EC2::VPC::Id'
       NetworkAvailabilityZones:
         Type: List<AWS::EC2::AvailabilityZone::Name>
-        Description: "A list of required Availability Zones to deploy VMs/Gateway LB Endpoints"
+        Description: "A list of desired Availability Zones to deploy Zscaler Cloud Connector/ASG, GWLB, and VPC Endpoints"
       NetworkCcSubnetIds:
-        Description: "The subnet where the Zscaler Cloud Connector AMI is deployed."
+        Description: "The subnets where the Zscaler Cloud Connector Auto Scaling Group is deployed."
         Type: List<AWS::EC2::Subnet::Id>
       # AsgLaunchTemplateVersion:
       #   Type: String
@@ -161,6 +161,13 @@ Parameters:
       #     Launch template version. Can be version number, \"$Latest\" (default) or \"$Default\"
       #   AllowedPattern: '^(\$Latest|\$Default|[0-9]+)$'
       #   Default: "$Latest"
+      AsgZonalEnabled:
+        Type: String
+        Description: "Select \"true\" to create one ASG per AZ (default), else \"false\" to create a single ASG spanning all selected AZs"
+        Default: true
+        AllowedValues:
+          - true
+          - false  
       AsgMinSize:
         Type: Number
         MinValue: 1
@@ -304,7 +311,7 @@ Parameters:
           - m6i.4xlarge
           - c6i.4xlarge
       ZscalerCcInstanceProfile:
-        Description: "[Optional] An Existing IAM Role ARN to use for Cloud Connector"
+        Description: "[Optional] Leave blank/empty to create a new IAM Role/Instance Profile"
         Type: String
         AllowedPattern: '^$|^arn:(aws|aws\\-cn|aws\\-us\\-gov):iam::[0-9]+:instance-profile/.*$'
         ConstraintDescription: >-
@@ -316,13 +323,13 @@ Parameters:
         Description: "The instance size for Zscaler Cloud Connector (small)"
         Type: String    
       ZscalerCcMgmtIntfSecurityGroup:
-        Description: "[Optional] An Existing Security Group Id to apply to Managementt Interfaces"
+        Description: "[Optional] Leave blank/empty to create a new security group"
         Type: String
         AllowedPattern: "^$|^sg-[0-9a-f]+$"
         ConstraintDescription: >-
           Please enter a valid AWS:EC2::SecurityGroup::Id
       ZscalerCcSrvcIntfSecurityGroup:
-        Description: "[Optional] An Existing Security Group Id to apply to Service Interfaces"
+        Description: "[Optional] Leave blank/empty to create a new security group"
         Type: String
         AllowedPattern: "^$|^sg-[0-9a-f]+$"
         ConstraintDescription: >-
@@ -332,14 +339,14 @@ Parameters:
         ConstraintDescription: >-
           Please input the Cloud Connector Provisioning Template URL to use from
           your Zscaler Cloud Connector Portal
-        Description: "Cloud Connector Provisioning URL"
+        Description: "Obtained from Cloud Connector Portal. Template requires Auto Scaling ENABLED in Group Information"
         Type: String
       ZscalerHttpProbePort:
         Type: String
         AllowedPattern: '^(80|102[4-9]|10[3-9]\d|1[1-9]\d{2}|[2-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$'
         ConstraintDescription: >-
           The HTTP probe port's allowed values are [80, 1024-65535]
-        Description: "HTTP Monitor probe port to listen on for monitoring probes. Allowed values are 80, 1024-65535. Defaults to 50000"
+        Description: "HTTP Monitor probe port for Cloud Connector listen on for monitoring health probes. Allowed values are 80, 1024-65535. Defaults to 50000"
         Default: 50000
       ZscalerKeyPairName:
         Type: AWS::EC2::KeyPair::KeyName
