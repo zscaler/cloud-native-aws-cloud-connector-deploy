@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Zscaler Cloud Connector Pre-Deployment Macro Template
+Description: Zscaler Cloud Connector Pre-Deployment Macro Template v1.3.0
 Metadata:
   LICENSE: 'Apache License, Version 2.0'
   cfn-lint:
@@ -84,6 +84,7 @@ Resources:
           import re
           import copy
           import pprint
+          import socket
 
           logger = logging.getLogger()
           logger.setLevel(logging.INFO)
@@ -254,7 +255,7 @@ Resources:
                 responseData = {"status": "failed", "errorMessage": f'{err}'}
                 return responseData
 
-          def add_required_simple_resources(template, responseData):
+          def add_required_simple_resources(template, event, responseData):
             res = {
                 "status": "success",
                 "message": "Simple Template processed successfully"
@@ -282,6 +283,20 @@ Resources:
               # add ami id in use to outputs
               outputs["ImageIdInUse"]["Value"] = responseData["ImageId"]
 
+              # first fetch the security group rule
+              sg_rule_ipcidr = resources["MgmtEgressRule3"]["Properties"]["CidrIp"]
+
+              # add remotesupport.<cloud>.net resolved IP to egress security group rule
+              ccprovurl = event.get("templateParameterValues").get("ZscalerCloudConnectorProvUrl")
+              pattern = r'(admin|connector).(?P<cloud>zs.*).net(/ec)?/w?api/v1/provUrl\?name=(?P<provname>[a-zA-Z0-9_]+)'
+              m = re.match(pattern, ccprovurl)
+              d = m.groupdict()
+              zscaler_cloud = d.get('cloud')
+              zssupportip = socket.gethostbyname(str("remotesupport." + zscaler_cloud + ".net"))
+              zssupportipcidr = str(zssupportip + "/32")
+              sg_rule_ipcidr = zssupportipcidr
+              resources["MgmtEgressRule3"]["Properties"]["CidrIp"] = sg_rule_ipcidr
+              
               # update outputs in template
               template["Outputs"] = outputs
 
@@ -307,7 +322,7 @@ Resources:
                 resp.update(responseData)
                 if resp.get("status") == "success":
                   template = event.get("fragment")
-                  res = add_required_simple_resources(template=template, responseData=responseData)
+                  res = add_required_simple_resources(template=template, event=event, responseData=responseData)
                   resp.update(res)
               
               except Exception as e:
@@ -337,7 +352,7 @@ Resources:
               logger.error(f'function is -> get_secondary_ip_from_service_eni, error is {err}')
               responseData = {"status": "failure", "errorMessage": str(err)}
             
-            return responseData
+            return responseDataadd_required_simple_resources
 
           def add_required_zpa_resources(template, vpcId, ResolverEPSubnets, TargetIps, app_domains_list):
             
@@ -721,7 +736,28 @@ Resources:
               responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
               responseData["message"] += err
             
-            
+            # Update management security group rules
+            try:
+                # first fetch the security group rule
+                sg_rule_ipcidr = resources["MgmtEgressRule3"]["Properties"]["CidrIp"]
+
+                # add remotesupport.<cloud>.net resolved IP to egress security group rule
+                ccprovurl = event.get("templateParameterValues").get("ZscalerCloudConnectorProvUrl")
+                pattern = r'(admin|connector).(?P<cloud>zs.*).net(/ec)?/w?api/v1/provUrl\?name=(?P<provname>[a-zA-Z0-9_]+)'
+                m = re.match(pattern, ccprovurl)
+                d = m.groupdict()
+                zscaler_cloud = d.get('cloud')
+                zssupportip = socket.gethostbyname(str("remotesupport." + zscaler_cloud + ".net"))
+                zssupportipcidr = str(zssupportip + "/32")
+                sg_rule_ipcidr = zssupportipcidr
+                resources["MgmtEgressRule3"]["Properties"]["CidrIp"] = sg_rule_ipcidr
+
+            except Exception as e:
+              err = f"Modifying Security Group Rules failed: {e}"
+              logger.error(err)
+              responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
+              responseData["message"] += err
+
             template["Resources"] = resources
             template["Outputs"] = outputs
             
@@ -796,4 +832,4 @@ Resources:
 Outputs:
   CloudConnectorMacroTemplateVersion:
     Description: Cloud Connector Macro Template Version
-    Value: 1.2.1
+    Value: 1.3.0
