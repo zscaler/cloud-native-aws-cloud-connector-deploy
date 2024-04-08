@@ -352,7 +352,7 @@ Resources:
               logger.error(f'function is -> get_secondary_ip_from_service_eni, error is {err}')
               responseData = {"status": "failure", "errorMessage": str(err)}
             
-            return responseDataadd_required_simple_resources
+            return responseData
 
           def add_required_zpa_resources(template, vpcId, ResolverEPSubnets, TargetIps, app_domains_list):
             
