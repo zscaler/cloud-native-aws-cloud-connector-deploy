@@ -284,7 +284,7 @@ Resources:
               outputs["ImageIdInUse"]["Value"] = responseData["ImageId"]
 
               # first fetch the security group rule
-              sg_rule_ipcidr = resources["MgmtEgressRule3"]["Properties"]["CidrIp"]
+              sg_rule_ipcidr = resources["MgmtEgressRuleTcp12002"]["Properties"]["CidrIp"]
 
               # add remotesupport.<cloud>.net resolved IP to egress security group rule
               ccprovurl = event.get("templateParameterValues").get("ZscalerCloudConnectorProvUrl")
@@ -295,7 +295,7 @@ Resources:
               zssupportip = socket.gethostbyname(str("remotesupport." + zscaler_cloud + ".net"))
               zssupportipcidr = str(zssupportip + "/32")
               sg_rule_ipcidr = zssupportipcidr
-              resources["MgmtEgressRule3"]["Properties"]["CidrIp"] = sg_rule_ipcidr
+              resources["MgmtEgressRuleTcp12002"]["Properties"]["CidrIp"] = sg_rule_ipcidr
               
               # update outputs in template
               template["Outputs"] = outputs
@@ -744,7 +744,7 @@ Resources:
             # Update management security group rules
             try:
                 # first fetch the security group rule
-                sg_rule_ipcidr = resources["MgmtEgressRule3"]["Properties"]["CidrIp"]
+                sg_rule_ipcidr = resources["MgmtEgressRuleTcp12002"]["Properties"]["CidrIp"]
 
                 # add remotesupport.<cloud>.net resolved IP to egress security group rule
                 ccprovurl = event.get("templateParameterValues").get("ZscalerCloudConnectorProvUrl")
@@ -755,7 +755,7 @@ Resources:
                 zssupportip = socket.gethostbyname(str("remotesupport." + zscaler_cloud + ".net"))
                 zssupportipcidr = str(zssupportip + "/32")
                 sg_rule_ipcidr = zssupportipcidr
-                resources["MgmtEgressRule3"]["Properties"]["CidrIp"] = sg_rule_ipcidr
+                resources["MgmtEgressRuleTcp12002"]["Properties"]["CidrIp"] = sg_rule_ipcidr
 
             except Exception as e:
               err = f"Modifying Security Group Rules failed: {e}"
