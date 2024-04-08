@@ -125,7 +125,7 @@ Resources:
                       subnet = EC2_RESOURCE.Subnet(subnetId)
                       if subnetId not in SubnetIds:
                         SubnetIds.append(subnetId)
-                        SubnetsByAZ[re.sub("\-", "", subnet.availability_zone)].append(subnetId)
+                        SubnetsByAZ[re.sub(r"\-", "", subnet.availability_zone)].append(subnetId)
                       vpc = eni.get("VpcId")
                       if vpc not in VpcIds:
                         VpcIds.append(vpc)
@@ -526,7 +526,7 @@ Resources:
                   # We only want to add to subnetsByAz if we dont have vpcEpSubnets given or if 
                   # the subnet is part of vpcEpSubnets
                   if not len(vpcEpSubnetIds) or vpcEpSubnetIds[0] == '' or subnetId in vpcEpSubnetIds:
-                    subnetsByAz[re.sub("\-", "", availability_zone)].append(subnetId)
+                    subnetsByAz[re.sub(r"\-", "", availability_zone)].append(subnetId)
               responseData["subnetIds"]= subnetIds
               responseData["subnetsByAz"] = subnetsByAz
             except Exception as e:
@@ -563,7 +563,7 @@ Resources:
             # override the CC Subnets. One subnet in each AZ is picked
             try:
               for az in availability_zones:
-                if len(subnetsByAz.get(re.sub("\-", "", az), [])) == 0:
+                if len(subnetsByAz.get(re.sub(r"\-", "", az), [])) == 0:
                   responseData["status"] = ["failed", "success"][responseData["status"]=="success" and False]
                   responseData["message"] += f"\nAvailability Zone {az} does not have any subnets specified in Vpc Endpoint Subnets if specified or in CloudConnector Subnets"
             except Exception as e:
@@ -658,15 +658,19 @@ Resources:
             # Asg Vpc Zone Identifier
             try:
               CcAutoScalingGroup = resources.get("CcAutoScalingGroup")
-              CcAutoScalingGroup.get("Properties")["VPCZoneIdentifier"] = uniqueCcSubnetIds
-              # One asg per az
               CcAutoScalingGroupTemplate = resources.pop("CcAutoScalingGroup")
               CcAsgAutoScalingPolicyTemplate = resources.pop("CcAsgAutoScalingPolicy")
               CcAsgWarmPoolTemplate = resources.pop("CcAsgWarmPool")
               CcAsgLambdaFunction = resources.get("CcAsgLambdaFunction")
               CcAsgEventBridgeInstanceTerminateLifecycleActionRule = resources.get("CcAsgEventBridgeInstanceTerminateLifecycleActionRule")
               asg_names = list()
-              for az, subnets in subnetsByAz.items():
+              if parameters.get("AsgZonalEnabled") == "false":
+                # One ASG for all AZs
+                subnetsForAz = {'AllAZs': uniqueCcSubnetIds}
+              else:
+                # One ASG per AZ
+                subnetsForAz = subnetsByAz
+              for az, subnets in subnetsForAz.items():
                 asg_name = f"CcAutoScalingGroupFor{az}"
                 asg_names.append(f"${{{asg_name}}}")
                 asg_policy_name = f"CcAutoScalingGroupScalingPolicyFor{az}"
@@ -674,6 +678,7 @@ Resources:
                 asg_resource = copy.deepcopy(CcAutoScalingGroupTemplate)
                 asg_policy_resource = copy.deepcopy(CcAsgAutoScalingPolicyTemplate)
                 asg_warmpool_resource = copy.deepcopy(CcAsgWarmPoolTemplate)
+                asg_resource["Properties"]["VPCZoneIdentifier"] = list(set(subnets))
                 asg_resource["Properties"]["AutoScalingGroupName"]["Fn::Sub"] = asg_resource["Properties"]["AutoScalingGroupName"]["Fn::Sub"] + f"For{az}"
                 asg_policy_resource["Properties"]["AutoScalingGroupName"]["Ref"] = asg_name
                 asg_policy_resource["Properties"]["TargetTrackingConfiguration"]["CustomizedMetricSpecification"]["Dimensions"][0]["Value"]["Ref"] = asg_name
