@@ -1,10 +1,20 @@
-## UNRELEASED - TBD
+## 1.3.0 - TBD
 
 ------------
 FEATURES:
 * feat: change HeathCheckGracePeriod default to 900 seconds to prevent instance termination in Auto Scaling Group when moved to InService
 * feat: change Python runtime for Lambda to use 3.12 version 
 * feat: default arm64 architecture. This is more for cost/peformance benefit.
+* feat: add parameter AsgZonalEnabled for customization when more than one Subnet/AZ selected to deploy either one ASG per AZ or one ASG spanning all AZs
+
+BUG FIXES:
+* fix: logic when multiple ASGs are created to only assign one unique Subnet/AZ in each ASG
+
+ENHANCEMENTS:
+* add: Ingress/Egress Security Group rule granularity for least privilege connectivity
+* add: parameter ZscalerSupportServerRuleEnabled for Zscaler Support Tunnel connectivity with SG creation
+* add: pre-deployment macro updates for Zscaler support tunnel endpoint IP lookup by Cloud
+* docs: general UX improvements
 
 ## 1.2.1 - 2024-02-22
 

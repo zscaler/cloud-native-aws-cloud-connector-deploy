@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Zscaler Cloud Connector GWLB Template
+Description: Zscaler Cloud Connector Add-on Template with Gateway Load Balancer (GWLB) v.1.3.0
 Metadata:
   LICENSE: 'Apache License, Version 2.0'
   'AWS::CloudFormation::Interface':
@@ -162,4 +162,4 @@ Outputs:
     Value: !Ref ZSCCVPCEP
   CloudConnectorGWLBTemplateVersion:
     Description: Cloud Connector Template Version
-    Value: 1.2.1
+    Value: 1.3.0
