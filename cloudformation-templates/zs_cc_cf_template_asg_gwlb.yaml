@@ -462,7 +462,6 @@ Resources:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       VpcId: !Ref NetworkVpcId
-      GroupName: cc-mgmt-sg
       GroupDescription: Security group for Cloud Connector management interface
   MgmtEgressRuleTcp443:
       Condition: CreateMgmtIntfSecurityGroup
@@ -510,7 +509,6 @@ Resources:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       VpcId: !Ref NetworkVpcId
-      GroupName: cc-svc-sg
       GroupDescription: Security group for Cloud Connector service interfaces
   ServiceEgressRuleTcp443:
       Condition: CreateSrvcIntfSecurityGroup
