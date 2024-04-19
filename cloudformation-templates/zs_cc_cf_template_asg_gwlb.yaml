@@ -1014,8 +1014,8 @@ Resources:
   CcAsgCloudwatchSchedulerEventRule:
     Type: AWS::Events::Rule
     Properties:
-      Description: "EventBridge rule to trigger Lambda function every 10 minutes"
-      ScheduleExpression: "rate(10 minutes)"
+      Description: "EventBridge rule to trigger Lambda function every 1 minute"
+      ScheduleExpression: "rate(1 minute)"
       State: "ENABLED"
       Targets:
         - Arn:

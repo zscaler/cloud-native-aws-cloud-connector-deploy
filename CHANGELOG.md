@@ -9,6 +9,7 @@ FEATURES:
 
 BUG FIXES:
 * fix: logic when multiple ASGs are created to only assign one unique Subnet/AZ in each ASG
+* fix: set CcAsgCloudwatchSchedulerEventRule scheduler to 1 minute
 
 ENHANCEMENTS:
 * add: Ingress/Egress Security Group rule granularity for least privilege connectivity
