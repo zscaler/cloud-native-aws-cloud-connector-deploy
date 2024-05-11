@@ -1,3 +1,9 @@
+## 1.3.1 - 2024-05-13
+
+------------
+ENHANCEMENTS:
+* feat: add c6in family as supported EC2 instance type
+
 ## 1.3.0 - 2024-04-26
 
 ------------

@@ -80,10 +80,12 @@ Parameters:
       - m5n.large
       - m6i.large
       - c6i.large
+      - c6in.large
       - m5n.4xlarge
       - c5.4xlarge
       - m6i.4xlarge
       - c6i.4xlarge
+      - c6in.4xlarge
     Default: m6i.large
     Description: The AWS EC2 instance type for the Cloud Connector instances
     Type: String
@@ -192,13 +194,15 @@ Rules:
               - m5n.large
               - m6i.large
               - c6i.large
+              - c6in.large
               - m5n.4xlarge
               - c5.4xlarge
               - m6i.4xlarge
               - c6i.4xlarge
+              - c6in.4xlarge
             - !Ref InstanceType
         AssertDescription: >-
-          For small CCInstanceType, the Instance type must be one of t3.medium, c5a.large, m5n.large, m6i.large, c6i.large, m5n.4xlarge, c5.4xlarge, m6i.4xlarge, c6i.4xlarge
+          For small CCInstanceType, the Instance type must be one of t3.medium, c5a.large, m5n.large, m6i.large, c6i.large, c6in.large, m5n.4xlarge, c5.4xlarge, m6i.4xlarge, c6i.4xlarge, c6in.4xlarge
   mediumCCInstanceType:
     RuleCondition: !Equals
       - !Ref CCInstanceType
@@ -210,9 +214,10 @@ Rules:
               - c5.4xlarge
               - m6i.4xlarge
               - c6i.4xlarge
+              - c6in.4xlarge
             - !Ref InstanceType
         AssertDescription: >-
-          For medium CCInstanceType, the Instance type must be one of c5.4xlarge, m5n.4xlarge, m6i.4xlarge, c6i.4xlarge
+          For medium CCInstanceType, the Instance type must be one of c5.4xlarge, m5n.4xlarge, m6i.4xlarge, c6i.4xlarge, c6in.4xlarge
   largeCCInstanceType:
     RuleCondition: !Equals
       - !Ref CCInstanceType
@@ -224,6 +229,7 @@ Rules:
               - c5.4xlarge
               - m6i.4xlarge
               - c6i.4xlarge
+              - c6in.4xlarge
             - !Ref InstanceType
         AssertDescription: >-
           For large CCInstanceType, the Instance type must be one of c5.4xlarge, m5n.4xlarge, m6i.4xlarge, c6i.4xlarge
