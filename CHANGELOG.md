@@ -1,3 +1,10 @@
+## 1.3.2 - 2024-08-17
+
+------------
+ENHANCEMENTS:
+* refactor: add sns:ListSubscriptions and sns:Unsubscribe permissions to cc_tags_policy_document for increased performance supporting multi-account workload tags
+* refactor: CC VM EC2 instance type constraint cleanup (removal of t3a.medium and c4.4xlarge)
+
 ## 1.3.1 - 2024-05-13
 
 ------------
