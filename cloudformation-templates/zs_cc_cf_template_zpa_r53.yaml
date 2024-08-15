@@ -38,6 +38,8 @@ Metadata:
         - E1012
         - E3030
         - E3033
+        - E1020 # resolver rule ID inputted via macro transform
+        - E1151 # resolver rule VPC ID inputted via macro transform
 
 Transform:
   - Name: ZSCC-Macro
@@ -112,13 +114,9 @@ Resources:
       GroupDescription: Enable app segment resolver comm
       SecurityGroupIngress:
         - IpProtocol: '-1'
-          FromPort: '0'
-          ToPort: '65535'
           CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
         - IpProtocol: '-1'
-          FromPort: '0'
-          ToPort: '65535'
           CidrIp: 0.0.0.0/0
   AppSegmentOutboundResolver:
     Type: 'AWS::Route53Resolver::ResolverEndpoint'
