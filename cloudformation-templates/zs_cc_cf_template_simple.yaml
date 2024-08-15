@@ -64,6 +64,8 @@ Metadata:
         - E2522
         - E6002
         - E8002
+        - E3510 # resource ID of secrets manager inputted from macro transform
+        - E3673 # image id inputted from macro transform
 
 
 Transform:
@@ -331,8 +333,6 @@ Resources:
           Description: "Optional: CC outbound all ports and protocols"
           GroupId: !Ref ServiceSecurityGroup
           IpProtocol: "-1"
-          FromPort: 0
-          ToPort: 65535
           CidrIp: 0.0.0.0/0
   ServiceIngressRuleTcpHealthProbe:
       Type: AWS::EC2::SecurityGroupIngress
@@ -367,8 +367,6 @@ Resources:
           Description: "Optional: Permit All Intra-VPC Traffic / Ensure CC Service Interfaces are able to communicate with each other freely"
           GroupId: !Ref ServiceSecurityGroup
           IpProtocol: "-1"
-          FromPort: 0
-          ToPort: 65535
           CidrIp: 0.0.0.0/0
   MgmtXface:
     Type: 'AWS::EC2::NetworkInterface'

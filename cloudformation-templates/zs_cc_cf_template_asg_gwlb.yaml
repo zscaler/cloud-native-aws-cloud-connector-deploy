@@ -143,6 +143,8 @@ Metadata:
         - W8003
         - W1020 #Fn::Sub isn't needed because there are no variables at Resources/
         - W2030 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html#cfn-logs-loggroup-retentionindays
+        - E3510 # resource ID of secrets manager inputted from macro transform
+        - E3014 # subnet mappings inputted from macro transform
 Transform:
   - Name: ZSCC-Macro
     Parameters:
@@ -558,8 +560,6 @@ Resources:
           Description: "Optional: CC outbound all ports and protocols"
           GroupId: !Ref ServiceSecurityGroup
           IpProtocol: "-1"
-          FromPort: 0
-          ToPort: 65535
           CidrIp: 0.0.0.0/0
   ServiceIngressRuleTcpHealthProbe:
       Condition: CreateSrvcIntfSecurityGroup
@@ -598,8 +598,6 @@ Resources:
           Description: "Optional: Permit All Intra-VPC Traffic / Ensure CC Service Interfaces are able to communicate with each other freely"
           GroupId: !Ref ServiceSecurityGroup
           IpProtocol: "-1"
-          FromPort: 0
-          ToPort: 65535
           CidrIp: 0.0.0.0/0
   
   CcGetSecretsPolicy:
