@@ -1,3 +1,14 @@
+## 1.3.3 - 2024-08-30
+
+------------
+ENHANCEMENTS:
+* add support for AWS China Marketpkace deployments in the AWS China (Beijing) region and AWS China (Ningxia) region
+* refactor: add china marketplace specific product-code ("axnpwhsb4facossmbm1h9yad6") AMI lookup in macro template 
+
+BUG FIXES:
+* fix: asg lambda runtime selection for unsupported regions
+* fix: macro lambda runtime selection for unsupported regions
+
 ## 1.3.2 - 2024-08-26
 
 ------------
