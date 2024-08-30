@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Zscaler Cloud Connector Starter Deployment Template with Auto Scaling and GWLB v1.3.2
+Description: Zscaler Cloud Connector Starter Deployment Template with Auto Scaling and GWLB v1.3.3
 
 Metadata:
   LICENSE: 'Apache License, Version 2.0'
@@ -455,6 +455,13 @@ Rules:
     AssertionDescription: Cloud Connector Provisioning URL cannot be empty!
 
 Mappings:
+  PartitionExclusiveMap:
+    aws:
+      Runtime: python3.12
+    aws-us-gov:
+      Runtime: python3.11
+    aws-cn:
+      Runtime: python3.11
   Product2Code:
     CloudConnector:
       Code: 2l8tfysndbav4tv2nfjwak3cu
@@ -933,13 +940,13 @@ Resources:
       Role: !GetAtt
         - CcAsgLambdaRole
         - Arn
-      Runtime: python3.12
+      Runtime: !FindInMap [PartitionExclusiveMap, !Ref "AWS::Partition", Runtime] # set lambda runtime to python3.11 in partition is aws-cn or aws-us-gov
       Environment:
         Variables:
           ASG_NAMES: !Sub '{json_dump_asg_names}'
           CC_URL: !Ref ZscalerCloudConnectorProvUrl
           SECRET_NAME: !If [ZscalerSecretsManagerNameNotEmpty, !Ref ZscalerSecretManagerSecretName, 'ZS/CC/credentials']
-          HC_DATA_POINTS: '10' # most recent datapoints to evaulate
+          HC_DATA_POINTS: '10' # most recent datapoints to evaluate
           HC_UNHEALTHY_THRESHOLD: '7'  # unhealthy datapoints threshold 
           HC_UNHEALTHY_CONTIGUOUS_DP: '5'  # continuous unhealthy datapoint counts
           MISSING_DATAPOINTS_UNHEALTHY: true # treat missing datapoints as unhealthy
@@ -1126,7 +1133,7 @@ Outputs:
     Value: ""
   CloudConnectorTemplateVersion:
     Description: Cloud Connector Template Version
-    Value: 1.3.2
+    Value: 1.3.3
   ZscalerCcInstanceProfileInUse:
     Description: IAM role being used by the CcInstances
     Value: !If 
