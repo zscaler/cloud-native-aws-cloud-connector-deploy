@@ -1,11 +1,21 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Zscaler Cloud Connector Pre-Deployment Macro Template v1.3.2
+Description: Zscaler Cloud Connector Pre-Deployment Macro Template v1.3.3
 Metadata:
   LICENSE: 'Apache License, Version 2.0'
   cfn-lint:
     config:
       ignore_checks:
         - E1029 # Fn::Sub check for variable in string
+
+Mappings:
+  PartitionExclusiveMap:
+    aws:
+      Runtime: python3.12
+    aws-us-gov:
+      Runtime: python3.11
+    aws-cn:
+      Runtime: python3.11
+
 Resources:
   ZSCCMacroExecutionRole:
     Type: AWS::IAM::Role
@@ -73,7 +83,7 @@ Resources:
       Role: !GetAtt
         - ZSCCMacroExecutionRole
         - Arn
-      Runtime: python3.12
+      Runtime: !FindInMap [PartitionExclusiveMap, !Ref "AWS::Partition", Runtime] # set lambda runtime to python3.11 in partition is aws-cn or aws-us-gov
       Code:
         ZipFile: |
           import json
@@ -217,11 +227,15 @@ Resources:
 
               # get the ImageCode from the template
               try:
-                
+
                 if event.get("templateParameterValues").get("ZscalerOsAmi"):
                   ImageId = event.get("templateParameterValues").get("ZscalerOsAmi")
                 else:
-                  ImageCode = event["fragment"]["Mappings"]["Product2Code"]["CloudConnector"]["Code"]
+                  RegionName = boto3.session.Session().region_name
+                  if RegionName.startswith('cn-'):
+                    ImageCode = "axnpwhsb4facossmbm1h9yad6"
+                  else:
+                    ImageCode = event["fragment"]["Mappings"]["Product2Code"]["CloudConnector"]["Code"]
                   logger.debug(f"Image Code: {ImageCode}")
                   # use the ImageCode to get ami id
                   filters = [{"Name": "product-code", "Values":[ImageCode]}]
@@ -837,4 +851,4 @@ Resources:
 Outputs:
   CloudConnectorMacroTemplateVersion:
     Description: Cloud Connector Macro Template Version
-    Value: 1.3.2
+    Value: 1.3.3
