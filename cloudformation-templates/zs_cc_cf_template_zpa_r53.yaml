@@ -40,6 +40,7 @@ Metadata:
         - E3033
         - E1020 # resolver rule ID inputted via macro transform
         - E1151 # resolver rule VPC ID inputted via macro transform
+        - E3031 # resolver rule name inputted via macro transform
 
 Transform:
   - Name: ZSCC-Macro
