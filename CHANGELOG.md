@@ -1,3 +1,9 @@
+## TBD - UNRELEASED
+
+------------
+BUG FIXES:
+* fix: add explicit udp/53 egress security group rule if CFT creates the SG 
+
 ## 1.3.3 - 2024-08-30
 
 ------------
