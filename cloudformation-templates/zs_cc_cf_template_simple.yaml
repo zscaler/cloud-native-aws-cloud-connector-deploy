@@ -266,6 +266,15 @@ Resources:
           FromPort: 123
           ToPort: 123
           CidrIp: 0.0.0.0/0
+  MgmtEgressRuleUdp53:
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Recommended: CC Mgmt outbound UDP/53"
+          GroupId: !Ref MgmtSecurityGroup
+          IpProtocol: "udp"
+          FromPort: 53
+          ToPort: 53
+          CidrIp: 0.0.0.0/0
   MgmtEgressRuleTcp12002:
       Condition: CreateZsSupportRule
       Type: AWS::EC2::SecurityGroupEgress
@@ -317,6 +326,15 @@ Resources:
           IpProtocol: "udp"
           FromPort: 123
           ToPort: 123
+          CidrIp: 0.0.0.0/0
+  ServiceEgressRuleUdp533:
+      Type: AWS::EC2::SecurityGroupEgress
+      Properties:
+          Description: "Recommended: CC Service outbound UDP 53"
+          GroupId: !Ref ServiceSecurityGroup
+          IpProtocol: "udp"
+          FromPort: 53
+          ToPort: 53
           CidrIp: 0.0.0.0/0
   ServiceEgressRuleUdp6081:
       Type: AWS::EC2::SecurityGroupEgress

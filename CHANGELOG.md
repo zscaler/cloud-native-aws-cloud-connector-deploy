@@ -1,8 +1,11 @@
-## TBD - Unreleased
+## TBD - UNRELEASED
 
 ------------
 ENHANCEMENTS:
 * add SourceAccount property to Pre Deployment ZSCCMacroFunctionPermissions resource to automatically store caller account ID for lambda
+
+BUG FIXES:
+* fix: add explicit udp/53 egress security group rule if CFT creates the SG 
 
 ## 1.3.3 - 2024-08-30
 
