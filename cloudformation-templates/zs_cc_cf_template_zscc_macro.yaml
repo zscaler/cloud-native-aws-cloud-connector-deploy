@@ -841,6 +841,7 @@ Resources:
       Action: 'lambda:InvokeFunction'
       FunctionName: !GetAtt ZSCCMacroFunction.Arn
       Principal: 'cloudformation.amazonaws.com'
+      SourceAccount: !Ref AWS::AccountId
 
   ZSCCMacro:
     Type: AWS::CloudFormation::Macro
