@@ -32,6 +32,7 @@ Metadata:
         - E3003
         - E2523
         - E3014 # subnet mappings inputted from macro transform
+        - E3681 # VPC ID is inputted from macro transform
 Transform:
   - Name: ZSCC-Macro
     Parameters:

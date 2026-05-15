@@ -1,3 +1,12 @@
+## 1.4.0 - 2026-05-15
+
+------------
+ENHANCEMENTS:
+* feat: add parameter AsgLifecycleActionWildcardResource to allow explicit opt-out from restricted Auto Scaling Group lifecycle action IAM resources
+* refactor: restrict default Auto Scaling Group lifecycle action IAM resources to ASGs created by the CloudFormation template
+* refactor: limit CloudWatch PutMetricData permission to the Zscaler/CloudConnectors namespace
+* refactor: update Cloud Tags IAM permissions to required SNS and SQS actions
+
 ## 1.3.3 - 2024-08-30
 
 ------------
