@@ -44,6 +44,7 @@ Metadata:
           - AsgWarmPoolMinSize
           - AsgWarmPoolMaxGroupPreparedCapacity
           - AsgLogGroupRetentionInDays
+          - AsgLifecycleActionWildcardResource
       - Label:
           default: Gateway Load Balancer Configuration
         Parameters:
@@ -81,6 +82,8 @@ Metadata:
         default: Auto Scaling Group Warm Pool Max Group Prepared Capacity
       AsgLogGroupRetentionInDays:
         default: Log Group Retention
+      AsgLifecycleActionWildcardResource:
+        default: Use Wildcard IAM Resource For ASG Lifecycle Actions
       AsgS3BucketName:
         default: Lambda S3 Bucket Name
       AsgS3Key:
@@ -258,6 +261,13 @@ Parameters:
           Possible values are: 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, and 3653.
         Default: 3
         AllowedValues: [ 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653]
+      AsgLifecycleActionWildcardResource:
+        Type: String
+        Description: "Select \"true\" to grant ASG lifecycle action permissions on all Auto Scaling Groups, else \"false\" to restrict permissions to ASGs created by this template (default)"
+        Default: false
+        AllowedValues:
+          - true
+          - false
       
       GwlbAcceptanceRequiredVpcEps:
         Type: String
@@ -387,6 +397,9 @@ Parameters:
           - false
           
 Conditions:
+  UseAsgLifecycleActionWildcardResource: !Equals
+    - !Ref AsgLifecycleActionWildcardResource
+    - true
   ZscalerSecretsManagerNameNotEmpty: !Not
     - !Equals 
         - !Ref ZscalerSecretManagerSecretName
@@ -647,9 +660,20 @@ Resources:
         Statement:
           - Effect: Allow
             Action:
+              - 'cloudwatch:PutMetricData'
+            Resource:
+              - '*'
+            Condition:
+              StringEquals:
+                'cloudwatch:namespace': 'Zscaler/CloudConnectors'
+          - Effect: Allow
+            Action:
               - 'cloudwatch:GetMetricStatistics'
               - 'cloudwatch:ListMetrics'
-              - 'cloudwatch:PutMetricData'
+            Resource:
+              - '*'
+          - Effect: Allow
+            Action:
               - 'ec2:DescribeTags'
             Resource:
               - '*'
@@ -658,21 +682,26 @@ Resources:
     Type: AWS::IAM::ManagedPolicy
     Condition: CreateIamAndInstanceProfile
     Properties: 
-      Description: Zscaler Cloud Connector Cloudwatch Metrics Policy
+      Description: Zscaler Cloud Connector Autoscaling Lifecycle Actions Policy
       PolicyDocument:
         Version: 2012-10-17
         Statement:
           - Effect: Allow
             Action:
+              - 'ec2:DescribeInstanceStatus'
               - 'autoscaling:DescribeLifecycleHookTypes'
               - 'autoscaling:DescribeLifecycleHooks'
               - 'autoscaling:DescribeAutoScalingInstances'
-              - 'autoscaling:CompleteLifecycleAction'
-              - 'autoscaling:RecordLifecycleActionHeartbeat'
-              - 'autoscaling:SetInstanceHealth'
-              - 'ec2:DescribeInstanceStatus'
             Resource:
               - '*'
+          - Effect: Allow
+            Action:
+              - 'autoscaling:CompleteLifecycleAction'
+              - 'autoscaling:RecordLifecycleActionHeartbeat'
+            Resource: !If 
+              - UseAsgLifecycleActionWildcardResource
+              - ['*']
+              - - !Sub 'arn:${AWS::Partition}:autoscaling:${AWS::Region}:${AWS::AccountId}:autoScalingGroup:*:autoScalingGroupName/${AWS::StackName}-CloudConnectorAutoScalingGroup*'
 
   CcCloudTagsPolicy:
     Condition: CreateCloudTagsIAM
@@ -684,16 +713,12 @@ Resources:
         Statement:
           - Effect: Allow
             Action:
-              - 'sqs:DeleteMessage'
-              - 'sqs:ReceiveMessage'
-              - 'sqs:GetQueueUrl'
-              - 'sqs:GetQueueAttributes'
-              - 'sqs:SetQueueAttributes'
-              - 'sqs:DeleteQueue'
-              - 'sqs:CreateQueue'
-              - 'sns:Subscribe'
+              - 'sns:ListTopics'
               - 'sns:ListSubscriptions'
+              - 'sns:Subscribe'
               - 'sns:Unsubscribe'
+              - 'sqs:CreateQueue'
+              - 'sqs:DeleteQueue'
             Resource:
               - '*'
 
