@@ -148,6 +148,7 @@ Metadata:
         - W2030 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html#cfn-logs-loggroup-retentionindays
         - E3510 # resource ID of secrets manager inputted from macro transform
         - E3014 # subnet mappings inputted from macro transform
+        - E3681 # VPC ID is inputted from macro transform
 Transform:
   - Name: ZSCC-Macro
     Parameters:
