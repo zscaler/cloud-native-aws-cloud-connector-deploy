@@ -63,9 +63,11 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                  - secretsmanager:ListSecrets
-                  - secretsmanager:GetSecretValue
                 Resource: "*"
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub 'arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:ZS/CC/credentials-*'
               - Effect: Allow
                 Action:
                   - 'logs:CreateLogGroup'
