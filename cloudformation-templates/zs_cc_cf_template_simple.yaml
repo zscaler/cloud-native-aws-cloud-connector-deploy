@@ -149,6 +149,14 @@ Parameters:
         AllowedValues:
           - true
           - false
+  MgmtSSHCidr:
+        Type: String
+        AllowedPattern: '^(\d{1,3}\.){3}\d{1,3}/(3[0-2]|[1-2]?\d)$'
+        ConstraintDescription: >-
+          Must be a valid IPv4 CIDR range. Restrict to your organization IP range, VPC CIDR, or bastion host IP.
+        Description: >-
+          The source IPv4 CIDR permitted for SSH (TCP/22) inbound to the Cloud Connector management interface.
+          Restrict to a known CIDR (e.g. your VPC CIDR or bastion host IP) to minimize attack surface.
 
 Conditions:
   SecretsManagerNameNotEmpty: !Not [!Equals [!Ref ZscalerSecretManagerSecretName, '']]
@@ -284,7 +292,7 @@ Resources:
           IpProtocol: "tcp"
           FromPort: 22
           ToPort: 22
-          CidrIp: 0.0.0.0/0
+          CidrIp: !Ref MgmtSSHCidr
       
   ServiceSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
