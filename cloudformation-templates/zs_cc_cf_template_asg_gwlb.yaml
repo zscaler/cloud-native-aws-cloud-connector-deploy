@@ -1067,6 +1067,7 @@ Resources:
       Port: 6081
       Protocol: GENEVE
       TargetType: instance
+      VpcId: !Ref NetworkVpcId
       TargetGroupAttributes:
         - Key: deregistration_delay.timeout_seconds
           Value: 0

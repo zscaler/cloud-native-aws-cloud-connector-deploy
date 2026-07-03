@@ -62,7 +62,6 @@ Parameters:
   ZscalerCloudName:
     Description: Your Zscaler Cloud Name
     AllowedValues:
-      - ''
       - zspreview.net
       - zsdevel.net
       - zsdemo.net
@@ -246,6 +245,11 @@ Resources:
 
   AppSegmentResolverDomainRule:
     Type: 'AWS::Route53Resolver::ResolverRule'
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3031 # placeholder resource with empty name/domain for user customization
     Properties:
       DomainName: ''
       Name: ''   
