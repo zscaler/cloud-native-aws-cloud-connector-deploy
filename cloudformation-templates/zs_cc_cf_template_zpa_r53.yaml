@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Zscaler Cloud Connector Add-on Template with ZPA (Route 53) v1.3.3
+Description: Zscaler Cloud Connector Add-on Template with ZPA (Route 53) v1.3.4
 Metadata:
   LICENSE: 'Apache License, Version 2.0'
   'AWS::CloudFormation::Interface':
@@ -62,7 +62,6 @@ Parameters:
   ZscalerCloudName:
     Description: Your Zscaler Cloud Name
     AllowedValues:
-      - ''
       - zspreview.net
       - zsdevel.net
       - zsdemo.net
@@ -246,6 +245,11 @@ Resources:
 
   AppSegmentResolverDomainRule:
     Type: 'AWS::Route53Resolver::ResolverRule'
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3031 # placeholder resource with empty name/domain for user customization
     Properties:
       DomainName: ''
       Name: ''   
@@ -269,4 +273,4 @@ Outputs:
       - ResolverEndpointId
   CloudConnectorZPATemplateVersion:
     Description: Cloud Connector ZPA Template Version
-    Value: 1.3.3
+    Value: 1.3.4
