@@ -1,3 +1,17 @@
+## 1.3.4 - 2026-07-07
+
+------------
+SECURITY:
+* fix: scope MgmtIngressRuleTcp22 SSH ingress CIDR via new required parameter (MgmtSSHCidr / ZscalerMgmtSSHCidr) replacing hardcoded 0.0.0.0/0 (TF-CFN-03 / CKV_AWS_24)
+* fix: restrict ZSCCMacroExecutionRole secretsmanager:GetSecretValue to ZS/CC/* ARN; drop unused ListSecrets (TF-CFN-01 / CKV_AWS_108)
+* fix: enforce ZS/CC/ path prefix on ZscalerSecretManagerSecretName parameter via AllowedPattern in both deployment templates
+* fix: replace weak IPv4 CIDR octet regex with strict 0-255 per-octet validation on SSH CIDR parameters
+
+BUG FIXES:
+* fix: add missing VpcId property to CcGwlbTargetGroup in asg_gwlb template (cfn-lint E3681)
+* fix: suppress E3681 in gwlb template where VpcId is injected by ZSCC-Macro transform (cfn-lint E3681)
+* fix: remove empty string from ZscalerCloudName AllowedValues in zpa_r53 template (cfn-lint W1030)
+
 ## 1.3.3 - 2024-08-30
 
 ------------

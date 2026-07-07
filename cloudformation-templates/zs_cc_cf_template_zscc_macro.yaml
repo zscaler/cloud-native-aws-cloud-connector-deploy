@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Zscaler Cloud Connector Pre-Deployment Macro Template v1.3.3
+Description: Zscaler Cloud Connector Pre-Deployment Macro Template v1.3.4
 Metadata:
   LICENSE: 'Apache License, Version 2.0'
   cfn-lint:
@@ -853,4 +853,4 @@ Resources:
 Outputs:
   CloudConnectorMacroTemplateVersion:
     Description: Cloud Connector Macro Template Version
-    Value: 1.3.3
+    Value: 1.3.4
