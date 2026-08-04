@@ -12,6 +12,9 @@ BUG FIXES:
 * fix: suppress E3681 in gwlb template where VpcId is injected by ZSCC-Macro transform (cfn-lint E3681)
 * fix: remove empty string from ZscalerCloudName AllowedValues in zpa_r53 template (cfn-lint W1030)
 
+ENHANCEMENTS:
+* add `FipsEnabled` parameter to simple and ASG CloudFormation templates for enabling FIPS mode via userdata
+
 ## 1.3.3 - 2024-08-30
 
 ------------
