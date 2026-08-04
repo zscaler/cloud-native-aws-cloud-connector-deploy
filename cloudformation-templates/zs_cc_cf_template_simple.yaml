@@ -21,6 +21,7 @@ Metadata:
           - ZscalerCloudConnectorProvUrl
           - ZscalerSecretManagerSecretName
           - HttpProbePort
+          - FipsEnabled
           - ZscalerEBSEncryptionEnabled
           - ZscalerCloudTagsEnabled
           - ZscalerSupportServerRuleEnabled
@@ -46,6 +47,8 @@ Metadata:
         default: Secrets Manager Secret Name
       HttpProbePort:
         default: HTTP Monitor Probe Port
+      FipsEnabled:
+        default: Enable FIPS Mode
       ZscalerEBSEncryptionEnabled:
         default: EBS Encryption Enabled
       ZscalerCloudTagsEnabled:
@@ -128,6 +131,13 @@ Parameters:
           The HTTP probe port's allowed values are [80, 1024-65535]
     Description: "HTTP Monitor probe port to listen on for monitoring probes. Allowed values are 80, 1024-65535. Defaults to 50000"
     Default: 50000
+  FipsEnabled:
+        Type: String
+        Description: "Select \"True\" to enable FIPS mode for Cloud Connector provisioning, else \"False\" (default)"
+        Default: "False"
+        AllowedValues:
+          - "True"
+          - "False"
   ZscalerEBSEncryptionEnabled:
         Type: String
         Description: "Select \"true\" to enable EBS encryption (default), else \"false\""
@@ -580,6 +590,7 @@ Resources:
             - !Join ['=', [ 'CC_URL', !Ref ZscalerCloudConnectorProvUrl]]
             - !Join ['=', ['SECRET_NAME', !If [SecretsManagerNameNotEmpty, !Ref ZscalerSecretManagerSecretName, 'ZS/CC/credentials']]]
             - !Join ['=', ['HTTP_PROBE_PORT', !If [HttpProbePortNotEmpty, !Ref HttpProbePort, '50000']]]
+            - !Join ['=', ['FIPS_ENABLED', !Ref FipsEnabled]]
       NetworkInterfaces:
         - NetworkInterfaceId: !Ref 'ServiceXface'
           DeviceIndex: '0'

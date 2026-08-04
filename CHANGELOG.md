@@ -6,6 +6,7 @@ ENHANCEMENTS:
 * refactor: restrict default Auto Scaling Group lifecycle action IAM resources to ASGs created by the CloudFormation template
 * refactor: limit CloudWatch PutMetricData permission to the Zscaler/CloudConnectors namespace
 * refactor: update Cloud Tags IAM permissions to required SNS and SQS actions
+* add `FipsEnabled` parameter to simple and ASG CloudFormation templates for enabling FIPS mode via userdata
 
 ## 1.3.3 - 2024-08-30
 

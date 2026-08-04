@@ -7,6 +7,8 @@ This README serves as a quick start guide to deploy Zscaler Cloud Connector reso
 
 Use this repository to create the deployment resources required to deploy and operate Cloud Connector in an existing virtual private cloud (VPC). To learn more about the steps for deploying Cloud Connector using a CloudFormation template, see [Deploying Cloud Connector with Amazon Web Services](https://help.zscaler.com/cloud-connector/deploying-cloud-connector-amazon-web-services).
 
+The Starter Deployment Template and Starter Deployment Template with Auto Scaling and Gateway Load Balancer include an `Enable FIPS Mode` parameter. The default is `False`; select `True` only when deploying Cloud Connectors that should provision with FIPS mode enabled.
+
 ## **1. Pre-Deployment Template**
 
 Before deploying your Cloud Connectors using CloudFormation, you must upload the [**Pre-Deployment Template**](cloudformation-templates/zs_cc_cf_template_zscc_macro.yaml) to the AWS CloudFormation console to create a Pre-Deployment Template Stack.
