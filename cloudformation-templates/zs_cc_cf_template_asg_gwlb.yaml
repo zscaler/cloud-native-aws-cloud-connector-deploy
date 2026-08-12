@@ -27,6 +27,7 @@ Metadata:
           - ZscalerAwsEc2InstanceType
           - ZscalerCloudConnectorProvUrl
           - ZscalerHttpProbePort
+          - FipsEnabled
           - ZscalerEBSEncryptionEnabled
       - Label:
           default: Auto Scaling Group Configuration
@@ -102,6 +103,8 @@ Metadata:
       
       ZscalerHttpProbePort:
         default: HTTP Monitor Probe Port
+      FipsEnabled:
+        default: Enable FIPS Mode
       ZscalerKeyPairName:
         default: Zscaler Cloud Connector Instance Key Pair
       ZscalerSecretManagerSecretName:
@@ -353,6 +356,13 @@ Parameters:
           The HTTP probe port's allowed values are [80, 1024-65535]
         Description: "HTTP Monitor probe port for Cloud Connector listen on for monitoring health probes. Allowed values are 80, 1024-65535. Defaults to 50000"
         Default: 50000
+      FipsEnabled:
+        Type: String
+        Description: "Select \"True\" to enable FIPS mode for Cloud Connector provisioning, else \"False\" (default)"
+        Default: "False"
+        AllowedValues:
+          - "True"
+          - "False"
       ZscalerKeyPairName:
         Type: AWS::EC2::KeyPair::KeyName
         Description: "AWS EC2 Instance Access KeyPair"
@@ -761,6 +771,10 @@ Resources:
                 - '='
                 - - 'HTTP_PROBE_PORT'
                   - !If [ZscalerHttpProbePortNotEmpty, !Ref ZscalerHttpProbePort, '50000']
+              - !Join
+                - '='
+                - - 'FIPS_ENABLED'
+                  - !Ref FipsEnabled
         TagSpecifications:
           - ResourceType: instance
             Tags:
